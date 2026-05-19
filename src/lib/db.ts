@@ -3,7 +3,7 @@ import type {
   Teacher, Class, Student, Enrollment, Guardian,
   AttendanceSession, AttendanceRecord, DiaryEntry,
   StudentObservation, AIReport, GierSubmission,
-  CurriculumSkill, SkillAssessment, LessonPlan, School,
+  CurriculumSkill, SkillAssessment, LessonPlan, School, Grade,
 } from '@/types'
 
 // Cache de sessão para evitar N chamadas auth.getUser()
@@ -241,6 +241,116 @@ export async function createDiaryEntry(input: {
     .single()
   if (error) throw error
   return data
+}
+
+export async function getDiaryEntryByDate(classId: string, date: string): Promise<DiaryEntry | null> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('diary_entries')
+    .select('*')
+    .eq('class_id', classId)
+    .eq('date', date)
+    .maybeSingle()
+  return data
+}
+
+export async function updateDiaryEntry(id: string, input: { title?: string; content: string; type?: string }): Promise<DiaryEntry> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('diary_entries')
+    .update(input)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// ==================== STUDENT OBSERVATIONS ====================
+
+export async function getStudentObservations(studentId: string, classId?: string): Promise<StudentObservation[]> {
+  const supabase = createClient()
+  let query = supabase
+    .from('student_observations')
+    .select('*')
+    .eq('student_id', studentId)
+    .order('date', { ascending: false })
+  if (classId) query = query.eq('class_id', classId)
+  const { data } = await query
+  return data || []
+}
+
+export async function createStudentObservation(input: {
+  student_id: string; class_id: string; category: string; content: string; severity?: string; is_private?: boolean
+}): Promise<StudentObservation> {
+  const supabase = createClient()
+  const userId = await getUserId()
+  const { data, error } = await supabase
+    .from('student_observations')
+    .insert({
+      ...input,
+      teacher_id: userId!,
+      date: new Date().toISOString().split('T')[0],
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// ==================== GRADES ====================
+
+export async function getGrades(filters: { student_id?: string; class_id?: string; bimestre?: number }): Promise<Grade[]> {
+  const supabase = createClient()
+  let query = supabase.from('grades').select('*, student:students(*)')
+  if (filters.student_id) query = query.eq('student_id', filters.student_id)
+  if (filters.class_id) query = query.eq('class_id', filters.class_id)
+  if (filters.bimestre) query = query.eq('bimestre', filters.bimestre)
+  query = query.order('bimestre')
+  const { data } = await query
+  return data || []
+}
+
+export async function upsertGrade(input: {
+  student_id: string; class_id: string; subject: string; bimestre: number; nota: number | null
+}): Promise<Grade> {
+  const supabase = createClient()
+  const userId = await getUserId()
+  const { data, error } = await supabase
+    .from('grades')
+    .upsert({
+      ...input,
+      teacher_id: userId!,
+    }, { onConflict: 'student_id,class_id,subject,bimestre' })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+// ==================== CLASS SUMMARY ====================
+
+export async function getClassSummary(classId: string): Promise<{
+  totalStudents: number
+  averageGrade: number | null
+  criticalObservations: number
+}> {
+  const supabase = createClient()
+
+  const [enrollments, gradesData, obsData] = await Promise.all([
+    supabase.from('enrollments').select('id', { count: 'exact', head: true }).eq('class_id', classId).eq('status', 'active'),
+    supabase.from('grades').select('nota').eq('class_id', classId),
+    supabase.from('student_observations').select('id', { count: 'exact', head: true }).eq('class_id', classId).eq('severity', 'critical'),
+  ])
+
+  const notas = gradesData.data?.map(g => g.nota).filter((n): n is number => n !== null) || []
+  const avg = notas.length > 0 ? notas.reduce((a, b) => a + b, 0) / notas.length : null
+
+  return {
+    totalStudents: enrollments.count || 0,
+    averageGrade: avg ? Math.round(avg * 10) / 10 : null,
+    criticalObservations: obsData.count || 0,
+  }
 }
 
 // ==================== LESSON PLANS ====================

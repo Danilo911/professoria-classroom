@@ -236,3 +236,17 @@ export interface LessonPlan {
   created_at: string
   updated_at: string
 }
+
+export interface Grade {
+  id: string
+  student_id: string
+  class_id: string
+  teacher_id: string
+  subject: string
+  bimestre: number
+  nota: number | null
+  created_at: string
+  updated_at: string
+  // Joined
+  student?: Student
+}
