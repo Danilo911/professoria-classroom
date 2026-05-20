@@ -532,7 +532,7 @@ img, table, pre, code, .card, .stat-card {
   }
 
   .card {
-    padding: 14px !important;
+    padding: 14px;
   }
 
   .input, select.input, textarea.input {
