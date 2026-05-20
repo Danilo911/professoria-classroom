@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, X, Check, Calendar, Mic } from 'lucide-react'
+import { Plus, X, Check, Calendar, Mic, Loader2 } from 'lucide-react'
 import { getClasses, getClassStudents, getDiaryEntries, createDiaryEntry, updateDiaryEntry, getDiaryEntryByDate, getStudentObservations, createStudentObservation, getGrades, upsertGrade, getClassSummary } from '@/lib/db'
+import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { useToast } from '@/lib/toast'
 import type { Class, Student, DiaryEntry, StudentObservation, Grade } from '@/types'
 
@@ -55,11 +56,19 @@ export default function DiarioPage() {
   const [obsForm, setObsForm] = useState({ category: 'general', severity: 'info', content: '' })
   const [entryForm, setEntryForm] = useState({ type: 'general', title: '', content: '' })
   const [showNewEntry, setShowNewEntry] = useState(false)
-  const [isListening, setIsListening] = useState(false)
   const { toast } = useToast()
   const today = getTodayBR()
   const menuRef = useRef<HTMLDivElement>(null)
-  const recognitionRef = useRef<any>(null)
+
+  const obsSpeech = useSpeechRecognition(
+    (text) => setObsForm(prev => ({ ...prev, content: prev.content ? prev.content + ' ' + text : text })),
+    (err) => toast(err, 'error')
+  )
+
+  const entrySpeech = useSpeechRecognition(
+    (text) => setEntryForm(prev => ({ ...prev, content: prev.content ? prev.content + ' ' + text : text })),
+    (err) => toast(err, 'error')
+  )
 
   useEffect(() => {
     getClasses().then(data => {
@@ -221,63 +230,6 @@ export default function DiarioPage() {
   function hasCriticalObs(studentId: string): boolean {
     const obs = obsMap[studentId] || []
     return obs.some(o => o.severity === 'critical')
-  }
-
-  function startListening() {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognition) {
-      toast('Reconhecimento de voz não disponível. Use Chrome ou Edge.', 'error')
-      return
-    }
-    try {
-      const recognition = new SpeechRecognition()
-      recognition.lang = 'pt-BR'
-      recognition.interimResults = false
-      recognition.continuous = false
-      recognition.maxAlternatives = 1
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript
-        setObsForm(prev => ({
-          ...prev,
-          content: prev.content ? prev.content + ' ' + transcript : transcript,
-        }))
-        setIsListening(false)
-      }
-      recognition.onerror = (event: any) => {
-        setIsListening(false)
-        if (event.error === 'not-allowed') {
-          toast('Permissão do microfone negada', 'error')
-        } else if (event.error === 'no-speech') {
-          toast('Nenhuma fala detectada', 'info')
-        } else if (event.error === 'network') {
-          toast('Erro de rede. Verifique sua conexão com a internet.', 'error')
-        } else if (event.error !== 'aborted') {
-          toast('Erro no reconhecimento de voz', 'error')
-        }
-      }
-      recognition.onend = () => {
-        setIsListening(false)
-      }
-      recognitionRef.current = recognition
-      recognition.start()
-      setIsListening(true)
-    } catch {
-      toast('Não foi possível iniciar o reconhecimento de voz', 'error')
-      setIsListening(false)
-    }
-  }
-
-  function stopListening() {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop() } catch {}
-      recognitionRef.current = null
-    }
-    setIsListening(false)
-  }
-
-  function toggleListening() {
-    if (isListening) stopListening()
-    else startListening()
   }
 
   if (loading) return <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>Carregando...</div>
@@ -526,17 +478,17 @@ export default function DiarioPage() {
               <textarea className="input" rows={2} placeholder="Descreva a observação ou use o microfone..." value={obsForm.content} required
                 onChange={e => setObsForm(prev => ({ ...prev, content: e.target.value }))}
                 style={{ fontSize: 12, padding: '4px 8px', paddingRight: 36 }} />
-              <button type="button" onClick={toggleListening}
+              <button type="button" onClick={obsSpeech.toggleListening} disabled={obsSpeech.status === 'loading'}
                 style={{
                   position: 'absolute', right: 4, bottom: 4, width: 28, height: 28,
-                  borderRadius: 6, border: 'none', cursor: 'pointer',
+                  borderRadius: 6, border: 'none', cursor: obsSpeech.status === 'loading' ? 'wait' : 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: isListening ? 'var(--danger)' : 'transparent',
-                  color: isListening ? 'white' : 'var(--text-muted)',
+                  background: obsSpeech.status === 'listening' ? 'var(--danger)' : obsSpeech.status === 'loading' ? 'var(--warning)' : 'transparent',
+                  color: obsSpeech.status === 'listening' ? 'white' : obsSpeech.status === 'loading' ? 'white' : 'var(--text-muted)',
                   transition: 'all 0.15s',
                 }}
-                title={isListening ? 'Parar gravação' : 'Gravar por voz'}>
-                <Mic size={14} />
+                title={obsSpeech.status === 'loading' ? 'Carregando modelo...' : obsSpeech.status === 'listening' ? 'Parar gravação' : 'Gravar por voz'}>
+                {obsSpeech.status === 'loading' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mic size={14} />}
               </button>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -561,61 +513,12 @@ function RecordsTab({
   onFormChange: (f: { type: string; title: string; content: string }) => void
   onSave: (e: React.FormEvent) => Promise<void>; onToggleNew: () => void
 }) {
-  const [isListening, setIsListening] = useState(false)
-  const recognitionRef = useRef<any>(null)
   const { toast } = useToast()
+  const speech = useSpeechRecognition(
+    (text) => onFormChange({ ...entryForm, content: entryForm.content ? entryForm.content + ' ' + text : text }),
+    (err) => toast(err, 'error')
+  )
 
-  function startListening() {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognition) {
-      toast('Reconhecimento de voz não disponível. Use Chrome ou Edge.', 'error')
-      return
-    }
-    try {
-      const recognition = new SpeechRecognition()
-      recognition.lang = 'pt-BR'
-      recognition.interimResults = false
-      recognition.continuous = false
-      recognition.maxAlternatives = 1
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript
-        onFormChange({ ...entryForm, content: entryForm.content ? entryForm.content + ' ' + transcript : transcript })
-        setIsListening(false)
-      }
-      recognition.onerror = (event: any) => {
-        setIsListening(false)
-        if (event.error === 'not-allowed') {
-          toast('Permissão do microfone negada', 'error')
-        } else if (event.error === 'no-speech') {
-          toast('Nenhuma fala detectada', 'info')
-        } else if (event.error === 'network') {
-          toast('Erro de rede. Verifique sua conexão com a internet.', 'error')
-        } else if (event.error !== 'aborted') {
-          toast('Erro no reconhecimento de voz', 'error')
-        }
-      }
-      recognition.onend = () => { setIsListening(false) }
-      recognitionRef.current = recognition
-      recognition.start()
-      setIsListening(true)
-    } catch {
-      toast('Não foi possível iniciar o reconhecimento de voz', 'error')
-      setIsListening(false)
-    }
-  }
-
-  function stopListening() {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop() } catch {}
-      recognitionRef.current = null
-    }
-    setIsListening(false)
-  }
-
-  function toggleListening() {
-    if (isListening) stopListening()
-    else startListening()
-  }
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
@@ -651,17 +554,17 @@ function RecordsTab({
               <textarea className="input" rows={3} placeholder="Descreva as atividades ou use o microfone..." value={entryForm.content} required
                 onChange={e => onFormChange({ ...entryForm, content: e.target.value })}
                 style={{ paddingRight: 36 }} />
-              <button type="button" onClick={toggleListening}
+              <button type="button" onClick={speech.toggleListening} disabled={speech.status === 'loading'}
                 style={{
                   position: 'absolute', right: 12, bottom: 12, width: 28, height: 28,
-                  borderRadius: 6, border: 'none', cursor: 'pointer',
+                  borderRadius: 6, border: 'none', cursor: speech.status === 'loading' ? 'wait' : 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: isListening ? 'var(--danger)' : 'transparent',
-                  color: isListening ? 'white' : 'var(--text-muted)',
+                  background: speech.status === 'listening' ? 'var(--danger)' : speech.status === 'loading' ? 'var(--warning)' : 'transparent',
+                  color: speech.status === 'listening' ? 'white' : speech.status === 'loading' ? 'white' : 'var(--text-muted)',
                   transition: 'all 0.15s',
                 }}
-                title={isListening ? 'Parar gravação' : 'Gravar por voz'}>
-                <Mic size={14} />
+                title={speech.status === 'loading' ? 'Carregando modelo...' : speech.status === 'listening' ? 'Parar gravação' : 'Gravar por voz'}>
+                {speech.status === 'loading' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mic size={14} />}
               </button>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
