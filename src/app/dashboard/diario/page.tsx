@@ -35,8 +35,10 @@ const DIARY_TYPES = [
 
 function getTodayBR(): string {
   const now = new Date()
-  const brasilia = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
-  return brasilia.toISOString().split('T')[0]
+  const brasiliaStr = now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })
+  const [datePart] = brasiliaStr.split(',')
+  const [month, day, year] = datePart.split('/').map(Number)
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
 function formatDateBR(dateStr: string): string {
