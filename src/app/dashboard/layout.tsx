@@ -177,7 +177,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main Content */}
-      <div style={{
+      <div className="main-content" style={{
         flex: 1,
         marginLeft: collapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar-width)',
         transition: 'margin-left var(--transition-base)',
@@ -299,7 +299,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           .desktop-collapse {
             display: none !important;
           }
-          div[style*="marginLeft"] {
+          .main-content {
             margin-left: 0 !important;
           }
         }
