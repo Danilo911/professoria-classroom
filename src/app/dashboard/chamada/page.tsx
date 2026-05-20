@@ -330,7 +330,7 @@ export default function ChamadaPage() {
           <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{selectedClass ? classes.find(c => c.id === selectedClass)?.name : ''}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {saving && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Salvando...</span>}
+          {saving && <span className="mobile-hidden" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Salvando...</span>}
           {!saving && <span className="mobile-hidden" style={{ fontSize: 12, color: 'var(--success)' }}>✓ Salvo</span>}
         </div>
       </div>
@@ -394,41 +394,41 @@ export default function ChamadaPage() {
             <div style={{ marginBottom: 10 }}>
               <input type="date" value={mobileRefDate} max={today}
                 onChange={e => setMobileRefDate(e.target.value)}
-                className="input" style={{ width: '100%', fontSize: 13, padding: '6px 8px' }} />
+                className="input" style={{ width: '100%', fontSize: 14, padding: '8px 10px' }} />
             </div>
 
             {/* Student cards with days inside */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {students.map((st, idx) => {
                 const stats = getStudentStats(st.id)
                 const tDate = transferredDate[st.id]
                 return (
-                  <div key={st.id} className="card" style={{ padding: 8 }}>
+                  <div key={st.id} className="card" style={{ padding: 12 }}>
                     {/* Student header */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 4 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
                         <div style={{
-                          width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                          width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
                           background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: 'white', fontWeight: 700, fontSize: 10,
+                          color: 'white', fontWeight: 700, fontSize: 12,
                         }}>{idx + 1}</div>
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{
-                            fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                             color: tDate ? 'var(--text-muted)' : undefined,
                             textDecoration: tDate ? 'line-through' : undefined,
                           }}>{st.full_name}</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: stats.effectiveAbsent > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>{stats.effectiveAbsent}</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: stats.pct >= 75 ? 'var(--success)' : stats.pct >= 50 ? 'var(--warning)' : 'var(--danger)' }}>{stats.total === 0 ? '-' : `${stats.pct}%`}</span>
+                      <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: stats.effectiveAbsent > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>{stats.effectiveAbsent}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: stats.pct >= 75 ? 'var(--success)' : stats.pct >= 50 ? 'var(--warning)' : 'var(--danger)' }}>{stats.total === 0 ? '-' : `${stats.pct}%`}</span>
                       </div>
                     </div>
 
                     {/* 5 day cells with headers */}
-                    <div style={{ display: 'flex', gap: 2 }}>
+                    <div style={{ display: 'flex', gap: 4 }}>
                       {mobile5Days.map(date => {
                         const isTransfered = !!(tDate && date >= tDate)
                         const isHoliday = holidays.has(date)
@@ -437,21 +437,21 @@ export default function ChamadaPage() {
                         const { day, date: dayNum } = formatDayHeader(date)
                         return (
                           <div key={date} style={{ flex: 1, textAlign: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, marginBottom: 2 }}>
-                              <span style={{ fontSize: 8, color: 'var(--text-muted)' }}>{day.slice(0, 1)} {dayNum}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginBottom: 4 }}>
+                              <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>{day.slice(0, 1)} {dayNum}</span>
                               <button onClick={() => toggleHoliday(date)} style={{
-                                width: 12, height: 12, border: 'none', background: 'none', cursor: 'pointer',
+                                width: 18, height: 18, border: 'none', background: 'none', cursor: 'pointer',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
                                 opacity: isHoliday ? 1 : 0.3,
                               }} title={isHoliday ? 'Remover feriado' : 'Marcar feriado'}>
-                                <span style={{ fontSize: 8 }}>🏖</span>
+                                <span style={{ fontSize: 14 }}>🏖</span>
                               </button>
                             </div>
                             <button
                               onClick={() => !isFuture && !isTransfered && !isHoliday && cycleStatus(st.id, date)}
                               disabled={isTransfered || isHoliday}
                               style={{
-                                width: '100%', height: 30, borderRadius: 4, border: 'none',
+                                width: '100%', height: 44, borderRadius: 8, border: 'none',
                                 background: isHoliday ? 'rgba(59, 130, 246, 0.15)' : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
                                 color: isHoliday ? '#3b82f6' : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -459,7 +459,7 @@ export default function ChamadaPage() {
                                 opacity: isFuture ? 0.4 : 1,
                               }}
                             >
-                              {isHoliday ? '' : isTransfered ? <Minus size={12} /> : status === 'present' ? <Check size={12} /> : status === 'absent' ? <X size={12} /> : <FileText size={12} />}
+                              {isHoliday ? '' : isTransfered ? <Minus size={18} /> : status === 'present' ? <Check size={18} /> : status === 'absent' ? <X size={18} /> : <FileText size={18} />}
                             </button>
                           </div>
                         )
