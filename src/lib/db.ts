@@ -190,23 +190,22 @@ export async function completeSession(sessionId: string) {
   await supabase.from('attendance_sessions').update({ completed: true }).eq('id', sessionId)
 }
 
-export async function getClassHolidays(classId: string, startDate: string, endDate: string): Promise<{ date: string; type: string; description: string | null }[]> {
+export async function getClassHolidays(classId: string, startDate: string, endDate: string): Promise<string[]> {
   const supabase = createClient()
   const { data } = await supabase
     .from('class_holidays')
-    .select('date, type, description')
+    .select('date')
     .eq('class_id', classId)
     .gte('date', startDate)
     .lte('date', endDate)
-    .order('date')
-  return data || []
+  return data?.map(d => d.date) || []
 }
 
-export async function upsertHoliday(classId: string, date: string, type: string = 'holiday', description: string | null = null) {
+export async function upsertHoliday(classId: string, date: string) {
   const supabase = createClient()
   const { error } = await supabase
     .from('class_holidays')
-    .upsert({ class_id: classId, date, type, description }, { onConflict: 'class_id,date' })
+    .upsert({ class_id: classId, date }, { onConflict: 'class_id,date' })
   if (error) throw error
 }
 
