@@ -520,7 +520,7 @@ export default function ChamadaPage() {
                     </div>
 
                     {/* 5 day cells with labels */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 1, overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', gap: 1, overflow: 'hidden' }}>
                       {mobile5Days.map(date => {
                         const isTransfered = !!(tDate && date >= tDate)
                         const sd = specialDays[date]
@@ -530,7 +530,7 @@ export default function ChamadaPage() {
                         const isFuture = date > today
                         const { day, date: dayNum } = formatDayHeader(date)
                         return (
-                          <div key={date} style={{ textAlign: 'center', minWidth: 0 }}>
+                          <div key={date} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
                             <div style={{ textAlign: 'center', marginBottom: 1, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden' }}>
                               <span style={{ fontSize: 7, color: 'var(--text-muted)', fontWeight: 500 }}>{day.slice(0, 3)} {dayNum}</span>
                             </div>
