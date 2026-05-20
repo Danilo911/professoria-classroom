@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Check, X, FileText, Minus, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, X, FileText, Minus, Calendar, XCircle, Umbrella, Users, Building, BookOpen } from 'lucide-react'
 import { getClassStudents, getSessionsByRange, createAttendanceSession, saveAttendanceRecords, completeSession, getClassHolidays, upsertHoliday, deleteHoliday } from '@/lib/db'
 import { getClasses } from '@/lib/db'
 import { useToast } from '@/lib/toast'
@@ -9,6 +9,20 @@ import { getTodayISO, formatDateBR } from '@/lib/dates'
 import type { Student, Class, AttendanceSession } from '@/types'
 
 type Status = 'present' | 'absent' | 'justified'
+
+type SpecialDayType = 'holiday' | 'ccc' | 'facultativo' | 'ree' | 'other'
+
+const SPECIAL_DAY_TYPES: { key: SpecialDayType; label: string; color: string; icon: React.ReactNode }[] = [
+  { key: 'holiday', label: 'Feriado', color: '#3b82f6', icon: <Umbrella size={16} /> },
+  { key: 'ccc', label: 'CCC', color: '#8b5cf6', icon: <Users size={16} /> },
+  { key: 'facultativo', label: 'Ponto Facultativo', color: '#f97316', icon: <Building size={16} /> },
+  { key: 'ree', label: 'REE', color: '#10b981', icon: <BookOpen size={16} /> },
+  { key: 'other', label: 'Outro', color: '#6b7280', icon: <XCircle size={16} /> },
+]
+
+function getSpecialDayInfo(type: string) {
+  return SPECIAL_DAY_TYPES.find(t => t.key === type)
+}
 
 function getMonthRange(year: number, month: number): { start: string; end: string } {
   const start = new Date(year, month, 1)
@@ -38,9 +52,12 @@ export default function ChamadaPage() {
   const [dates, setDates] = useState<string[]>([])
   const [attendance, setAttendance] = useState<Record<string, Record<string, Status>>>({})
   const [transferredDate, setTransferredDate] = useState<Record<string, string>>({})
-  const [holidays, setHolidays] = useState<Set<string>>(new Set())
+  const [specialDays, setSpecialDays] = useState<Record<string, { type: string; description: string | null }>>({})
   const [transferMenu, setTransferMenu] = useState<{ studentId: string; x: number; y: number } | null>(null)
   const [transferDateInput, setTransferDateInput] = useState('')
+  const [dayMenu, setDayMenu] = useState<{ date: string; x: number; y: number } | null>(null)
+  const [dayMenuType, setDayMenuType] = useState<string>('holiday')
+  const [dayMenuDescription, setDayMenuDescription] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingHolidays, setSavingHolidays] = useState(false)
@@ -55,6 +72,7 @@ export default function ChamadaPage() {
   const holidayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const monthPickerRef = useRef<HTMLDivElement>(null)
+  const dayMenuRef = useRef<HTMLDivElement>(null)
 
   const today = getTodayISO()
 
@@ -91,10 +109,11 @@ export default function ChamadaPage() {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setTransferMenu(null)
       if (monthPickerRef.current && !monthPickerRef.current.contains(e.target as Node)) setShowMonthPicker(false)
+      if (dayMenuRef.current && !dayMenuRef.current.contains(e.target as Node)) setDayMenu(null)
     }
-    if (transferMenu || showMonthPicker) document.addEventListener('mousedown', handleClickOutside)
+    if (transferMenu || showMonthPicker || dayMenu) document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [transferMenu, showMonthPicker])
+  }, [transferMenu, showMonthPicker, dayMenu])
 
   async function loadData(classId: string) {
     setLoading(true)
@@ -106,7 +125,9 @@ export default function ChamadaPage() {
     ])
     setStudents(studentsData)
     setSessions(sessionsData)
-    setHolidays(new Set(holidaysData))
+    const sd: Record<string, { type: string; description: string | null }> = {}
+    for (const h of holidaysData) sd[h.date] = { type: h.type || 'holiday', description: h.description || null }
+    setSpecialDays(sd)
 
     const allDates: string[] = []
     const d = new Date(start + 'T12:00:00')
@@ -183,37 +204,63 @@ export default function ChamadaPage() {
     toast('Aluno restaurado', 'info')
   }
 
-  function toggleHoliday(date: string) {
-    const wasHoliday = holidays.has(date)
-    setHolidays(prev => {
-      const next = new Set(prev)
-      if (next.has(date)) next.delete(date)
-      else next.add(date)
-      return next
-    })
-    toast(wasHoliday ? 'Feriado removido' : 'Dia marcado como feriado', 'info')
+  function openDayMenu(date: string, e: React.MouseEvent | React.TouchEvent) {
+    const existing = specialDays[date]
+    setDayMenuType(existing?.type || 'holiday')
+    setDayMenuDescription(existing?.description || '')
+    const rect = (e.target as HTMLElement).getBoundingClientRect()
+    setDayMenu({ date, x: rect.left, y: rect.bottom + 4 })
+  }
+
+  function handleSetSpecialDay() {
+    if (!dayMenu) return
+    const { date } = dayMenu
+    if (dayMenuType) {
+      setSpecialDays(prev => ({ ...prev, [date]: { type: dayMenuType, description: dayMenuDescription || null } }))
+      toast(getSpecialDayInfo(dayMenuType)?.label + ' marcado', 'info')
+    }
     if (holidayTimeoutRef.current) clearTimeout(holidayTimeoutRef.current)
     holidayTimeoutRef.current = setTimeout(async () => {
       setSavingHolidays(true)
       try {
-        if (!wasHoliday) {
-          await upsertHoliday(selectedClass, date)
-        } else {
-          await deleteHoliday(selectedClass, date)
+        if (dayMenuType) {
+          await upsertHoliday(selectedClass, date, dayMenuType, dayMenuDescription || null)
         }
       } catch {
-        toast('Erro ao salvar feriado', 'error')
+        toast('Erro ao salvar', 'error')
       } finally {
         setSavingHolidays(false)
       }
     }, 500)
+    setDayMenu(null)
+  }
+
+  function handleRemoveSpecialDay(date: string) {
+    setSpecialDays(prev => {
+      const next = { ...prev }
+      delete next[date]
+      return next
+    })
+    toast('Dia restaurado', 'info')
+    if (holidayTimeoutRef.current) clearTimeout(holidayTimeoutRef.current)
+    holidayTimeoutRef.current = setTimeout(async () => {
+      setSavingHolidays(true)
+      try {
+        await deleteHoliday(selectedClass, date)
+      } catch {
+        toast('Erro ao remover', 'error')
+      } finally {
+        setSavingHolidays(false)
+      }
+    }, 500)
+    setDayMenu(null)
   }
 
   const saveAttendance = useCallback(async () => {
     if (!selectedClass || students.length === 0 || saving) return
 
     const changedDates = dates.filter(date => {
-      if (date > today || holidays.has(date)) return false
+      if (date > today || specialDays[date]) return false
       return students.some(st => {
         const tDate = transferredDate[st.id]
         if (tDate && date >= tDate) return false
@@ -268,7 +315,7 @@ export default function ChamadaPage() {
 
   function getStudentStats(studentId: string) {
     const tDate = transferredDate[studentId]
-    const relevantDates = (tDate ? dates.filter(d => d < tDate) : dates).filter(d => !holidays.has(d))
+    const relevantDates = (tDate ? dates.filter(d => d < tDate) : dates).filter(d => !specialDays[d])
     if (relevantDates.length === 0) return { present: 0, absent: 0, justified: 0, total: 0, pct: 0, effectiveAbsent: 0 }
     const statuses = relevantDates.map(d => attendance[studentId]?.[d] || 'present')
     const present = statuses.filter(s => s === 'present').length
@@ -282,7 +329,7 @@ export default function ChamadaPage() {
 
   function getBuscaAtivaAlert(studentId: string): string | null {
     const tDate = transferredDate[studentId]
-    const relevantDates = (tDate ? dates.filter(d => d < tDate) : dates).filter(d => !holidays.has(d))
+    const relevantDates = (tDate ? dates.filter(d => d < tDate) : dates).filter(d => !specialDays[d])
     const statuses = relevantDates.map(d => attendance[studentId]?.[d] || 'present')
 
     // Check 3 consecutive absences
@@ -380,7 +427,11 @@ export default function ChamadaPage() {
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444' }} /> Falta</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b' }} /> Justificado</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e' }} /> Presente</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3b82f6' }} /> Feriado</span>
+          {SPECIAL_DAY_TYPES.map(t => (
+            <span key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: t.color }} /> {t.label}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -406,7 +457,7 @@ export default function ChamadaPage() {
               />
             </div>
 
-            {/* Month header - days of week and dates */}
+            {/* Month header - clickable days */}
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'repeat(5, 1fr)', 
@@ -416,20 +467,32 @@ export default function ChamadaPage() {
             }}>
               {mobile5Days.map(date => {
                 const { day, date: dayNum } = formatDayHeader(date)
-                const isHoliday = holidays.has(date)
+                const sd = specialDays[date]
+                const sdInfo = sd ? getSpecialDayInfo(sd.type) : null
                 const isWeekendDay = isWeekend(date)
+                const isFuture = date > today
                 return (
-                    <div key={date} style={{ 
+                  <div
+                    key={date}
+                    onClick={e => !isFuture && openDayMenu(date, e)}
+                    style={{ 
                       textAlign: 'center', 
-                      padding: '6px 0', 
+                      padding: '6px 0',
                       borderRadius: 6,
-                      background: isWeekendDay ? 'rgba(148, 163, 184, 0.1)' : 'transparent',
-                      color: isHoliday ? '#3b82f6' : isWeekendDay ? 'var(--text-muted)' : 'var(--text-secondary)',
+                      cursor: isFuture ? 'default' : 'pointer',
+                      background: sd ? `${sdInfo?.color || '#3b82f6'}20` : isWeekendDay ? 'rgba(148, 163, 184, 0.1)' : 'transparent',
+                      color: sd ? (sdInfo?.color || '#3b82f6') : isWeekendDay ? 'var(--text-muted)' : 'var(--text-secondary)',
                       fontSize: 11,
-                      fontWeight: isHoliday ? 600 : 500
-                    }}>
+                      fontWeight: sd ? 600 : 500,
+                      transition: 'background 0.15s',
+                      position: 'relative',
+                    }}
+                    onMouseEnter={e => { if (!isFuture) (e.currentTarget.style.background = sd ? `${sdInfo?.color || '#3b82f6'}35` : 'rgba(148, 163, 184, 0.2)') }}
+                    onMouseLeave={e => { if (!isFuture) (e.currentTarget.style.background = sd ? `${sdInfo?.color || '#3b82f6'}20` : isWeekendDay ? 'rgba(148, 163, 184, 0.1)' : 'transparent') }}
+                  >
                     <div style={{ fontSize: 9, opacity: 0.8 }}>{day.slice(0, 2)}</div>
                     <div style={{ fontWeight: 600 }}>{dayNum}</div>
+                    {sd && <div style={{ fontSize: 7, marginTop: 2, opacity: 0.9 }}>{sdInfo?.label.slice(0, 4)}</div>}
                   </div>
                 )
               })}
@@ -465,33 +528,34 @@ export default function ChamadaPage() {
                       </div>
                     </div>
 
-                    {/* 5 day cells with headers */}
+                    {/* 5 day cells */}
                     <div style={{ display: 'flex', gap: 4 }}>
                       {mobile5Days.map(date => {
                         const isTransfered = !!(tDate && date >= tDate)
-                        const isHoliday = holidays.has(date)
-                        const status = isTransfered || isHoliday ? null : (attendance[st.id]?.[date] || 'present')
+                        const sd = specialDays[date]
+                        const sdInfo = sd ? getSpecialDayInfo(sd.type) : null
+                        const isSpecialDay = !!sd
+                        const status = isTransfered || isSpecialDay ? null : (attendance[st.id]?.[date] || 'present')
                         const isFuture = date > today
-                        const { day, date: dayNum } = formatDayHeader(date)
                         return (
-                          <div key={date} style={{ flex: 1, textAlign: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, marginBottom: 4 }}>
-                              <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>{day.slice(0, 1)} {dayNum}</span>
-                              {isHoliday && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', flexShrink: 0 }} />}
-                            </div>
+                          <div key={date} style={{ flex: 1 }}>
                             <button
-                              onClick={() => !isFuture && !isTransfered && !isHoliday && cycleStatus(st.id, date)}
-                              disabled={isTransfered || isHoliday}
+                              onClick={() => !isFuture && !isTransfered && !isSpecialDay && cycleStatus(st.id, date)}
+                              disabled={isTransfered || isSpecialDay}
                               style={{
                                 width: '100%', height: 44, borderRadius: 8, border: 'none',
-                                background: isHoliday ? 'rgba(59, 130, 246, 0.15)' : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
-                                color: isHoliday ? '#3b82f6' : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
+                                background: isSpecialDay ? `${sdInfo?.color || '#3b82f6'}15` : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
+                                color: isSpecialDay ? (sdInfo?.color || '#3b82f6') : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: isFuture || isTransfered || isHoliday ? 'default' : 'pointer',
+                                cursor: isFuture || isTransfered || isSpecialDay ? 'default' : 'pointer',
                                 opacity: isFuture ? 0.4 : 1,
                               }}
                             >
-                              {isTransfered ? <Minus size={18} /> : status === 'present' ? <Check size={18} /> : status === 'absent' ? <X size={18} /> : <FileText size={18} />}
+                              {isTransfered ? <Minus size={18} /> : 
+                               isSpecialDay ? <Calendar size={18} /> :
+                               status === 'present' ? <Check size={18} /> : 
+                               status === 'absent' ? <X size={18} /> : 
+                               <FileText size={18} />}
                             </button>
                           </div>
                         )
@@ -514,18 +578,18 @@ export default function ChamadaPage() {
                     const { day, date: dayNum } = formatDayHeader(date)
                     const isFuture = date > today
                     const isToday = date === today
-                    const isHoliday = holidays.has(date)
+                    const sd = specialDays[date]
+                    const sdInfo = sd ? getSpecialDayInfo(sd.type) : null
                     return (
-                      <th key={date} onClick={() => !isFuture && toggleHoliday(date)} style={{
+                      <th key={date} onClick={e => !isFuture && openDayMenu(date, e)} style={{
                         padding: '6px 4px', textAlign: 'center', fontWeight: 500, fontSize: 11,
                         borderBottom: '2px solid var(--border)', minWidth: 44,
-                        background: isHoliday ? 'rgba(59, 130, 246, 0.15)' : isToday ? 'var(--primary-light)' : 'var(--bg-secondary)',
-                        color: isFuture ? 'var(--text-muted)' : isHoliday ? '#3b82f6' : undefined,
+                        background: sd ? `${sdInfo?.color || '#3b82f6'}15` : isToday ? 'var(--primary-light)' : 'var(--bg-secondary)',
+                        color: isFuture ? 'var(--text-muted)' : sd ? (sdInfo?.color || '#3b82f6') : undefined,
                         cursor: isFuture ? 'default' : 'pointer',
-                      }} title={isHoliday ? 'Clique para remover feriado' : 'Clique para marcar como feriado'}>
-                        <div style={{ fontSize: 10, color: isHoliday ? '#3b82f6' : 'var(--text-muted)', textTransform: 'uppercase' }}>{day}</div>
+                      }}>
+                        <div style={{ fontSize: 10, color: sd ? (sdInfo?.color || '#3b82f6') : 'var(--text-muted)', textTransform: 'uppercase' }}>{sd ? sdInfo?.label.slice(0, 3) : day}</div>
                         <div style={{ fontSize: 13, fontWeight: 600 }}>{dayNum}</div>
-                        {isHoliday && <div style={{ fontSize: 8, marginTop: 2, width: 14, height: 14, borderRadius: '50%', background: '#3b82f6' }} />}
                       </th>
                     )
                   })}
@@ -568,25 +632,27 @@ export default function ChamadaPage() {
                       </td>
                       {dates.map(date => {
                         const isTransfered = !!(tDate && date >= tDate)
-                        const isHoliday = holidays.has(date)
-                        const status = isTransfered || isHoliday ? null : (attendance[st.id]?.[date] || 'present')
+                        const sd = specialDays[date]
+                        const sdInfo = sd ? getSpecialDayInfo(sd.type) : null
+                        const isSpecialDay = !!sd
+                        const status = isTransfered || isSpecialDay ? null : (attendance[st.id]?.[date] || 'present')
                         const isFuture = date > today
                         return (
-                          <td key={date} style={{ padding: '4px', textAlign: 'center', borderBottom: '1px solid var(--border)', cursor: isFuture || isTransfered || isHoliday ? 'default' : 'pointer', opacity: isFuture ? 0.4 : 1 }}>
+                          <td key={date} style={{ padding: '4px', textAlign: 'center', borderBottom: '1px solid var(--border)', cursor: isFuture || isTransfered || isSpecialDay ? 'default' : 'pointer', opacity: isFuture ? 0.4 : 1 }}>
                             <button
-                              onClick={() => !isFuture && !isTransfered && !isHoliday && cycleStatus(st.id, date)}
-                              disabled={isTransfered || isHoliday}
+                              onClick={() => !isFuture && !isTransfered && !isSpecialDay && cycleStatus(st.id, date)}
+                              disabled={isTransfered || isSpecialDay}
                               style={{
                                 width: 28, height: 28, borderRadius: 6, border: 'none',
-                                background: isHoliday ? 'rgba(59, 130, 246, 0.15)' : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
-                                color: isHoliday ? '#3b82f6' : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
+                                background: isSpecialDay ? `${sdInfo?.color || '#3b82f6'}15` : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
+                                color: isSpecialDay ? (sdInfo?.color || '#3b82f6') : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: isFuture || isTransfered || isHoliday ? 'default' : 'pointer',
+                                cursor: isFuture || isTransfered || isSpecialDay ? 'default' : 'pointer',
                                 fontSize: 14,
                               }}
-                              title={isHoliday ? 'Feriado' : isTransfered ? `Transferido desde ${formatDateBR(tDate!)}` : status === 'present' ? 'Presente' : status === 'absent' ? 'Falta' : 'Justificado'}
+                              title={isSpecialDay ? (sdInfo?.label || '') : isTransfered ? `Transferido desde ${formatDateBR(tDate!)}` : status === 'present' ? 'Presente' : status === 'absent' ? 'Falta' : 'Justificado'}
                             >
-                               {isHoliday ? <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#3b82f6' }} /> : isTransfered ? <Minus size={16} /> : status === 'present' ? <Check size={16} /> : status === 'absent' ? <X size={16} /> : <FileText size={16} />}
+                               {isSpecialDay ? <Calendar size={14} /> : isTransfered ? <Minus size={16} /> : status === 'present' ? <Check size={16} /> : status === 'absent' ? <X size={16} /> : <FileText size={16} />}
                             </button>
                           </td>
                         )
@@ -627,6 +693,57 @@ export default function ChamadaPage() {
             </div>
           )}
         </>
+      )}
+
+      {dayMenu && (
+        <div ref={dayMenuRef} style={{
+          position: 'fixed', left: Math.min(dayMenu.x, window.innerWidth - 260), top: dayMenu.y,
+          background: 'var(--bg-primary)', border: '1px solid var(--border)',
+          borderRadius: 8, padding: 12, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          minWidth: 240, maxWidth: 280,
+        }}>
+          <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
+            {formatDateBR(dayMenu.date)}
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {SPECIAL_DAY_TYPES.map(t => (
+              <label key={t.key} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
+                borderRadius: 6, cursor: 'pointer',
+                background: dayMenuType === t.key ? `${t.color}20` : 'var(--bg-secondary)',
+                border: dayMenuType === t.key ? `2px solid ${t.color}` : '2px solid transparent',
+                transition: 'all 0.15s',
+              }}
+                onMouseEnter={e => { if (dayMenuType !== t.key) e.currentTarget.style.background = 'rgba(148,163,184,0.15)' }}
+                onMouseLeave={e => { if (dayMenuType !== t.key) e.currentTarget.style.background = 'var(--bg-secondary)' }}
+              >
+                <input type="radio" name="specialDayType" value={t.key}
+                  checked={dayMenuType === t.key} onChange={() => setDayMenuType(t.key)}
+                  style={{ accentColor: t.color }} />
+                <div style={{ width: 16, height: 16, borderRadius: '50%', background: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 8 }}>
+                  {t.icon}
+                </div>
+                <span style={{ fontSize: 13 }}>{t.label}</span>
+              </label>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button onClick={handleSetSpecialDay} className="btn btn-sm btn-primary" style={{ flex: 1 }}>
+              {specialDays[dayMenu.date] ? 'Atualizar' : 'Marcar'}
+            </button>
+            {specialDays[dayMenu.date] && (
+              <button onClick={() => handleRemoveSpecialDay(dayMenu.date)}
+                className="btn btn-sm" style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}>
+                Remover
+              </button>
+            )}
+            <button onClick={() => setDayMenu(null)} className="btn btn-sm btn-ghost">
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
 
       {transferMenu && (
