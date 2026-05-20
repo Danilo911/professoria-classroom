@@ -111,7 +111,7 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
       const pipe = await loadWhisper()
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
-      const mediaRecorder = new MediaRecorder(stream)
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
       const chunks: Blob[] = []
 
       mediaRecorder.ondataavailable = (e) => {
@@ -119,17 +119,25 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
       }
 
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' })
-        const arrayBuffer = await blob.arrayBuffer()
-        const float32Data = await decodeAudio(arrayBuffer)
+        try {
+          const blob = new Blob(chunks, { type: 'audio/webm' })
+          const arrayBuffer = await blob.arrayBuffer()
+          const float32Data = await decodeAudio(arrayBuffer)
 
-        const result = await pipe(float32Data, {
-          language: 'portuguese',
-          task: 'transcribe',
-        })
+          const result = await pipe(float32Data, {
+            language: 'portuguese',
+            task: 'transcribe',
+          })
 
-        if (result?.text) {
-          onResult(result.text.trim())
+          if (result && result.text && result.text.trim()) {
+            onResult(result.text.trim())
+          } else {
+            setError('Não foi possível transcrever o áudio')
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Erro ao transcrever áudio'
+          setError(msg)
+          onError?.(msg)
         }
         stream.getTracks().forEach(t => t.stop())
         streamRef.current = null
@@ -176,10 +184,13 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
 
 async function decodeAudio(arrayBuffer: ArrayBuffer): Promise<Float32Array> {
   const audioContext = new AudioContext({ sampleRate: 16000 })
-  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-  const channelData = audioBuffer.getChannelData(0)
-  audioContext.close()
-  return channelData
+  try {
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    const channelData = audioBuffer.getChannelData(0)
+    return new Float32Array(channelData)
+  } finally {
+    await audioContext.close()
+  }
 }
 
 export { useSpeechRecognition }

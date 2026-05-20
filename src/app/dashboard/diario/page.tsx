@@ -331,7 +331,11 @@ export default function DiarioPage() {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                           <span
                             onClick={(e) => activeTab === 'observations' && openObsMenu(st.id, e)}
-                            style={{ cursor: activeTab === 'observations' ? 'pointer' : 'default', color: isCritical ? 'var(--danger)' : undefined }}
+                            style={{
+                              cursor: activeTab === 'observations' ? 'pointer' : 'default',
+                              color: isCritical ? 'var(--danger)' : activeTab === 'observations' ? 'var(--primary)' : undefined,
+                              textDecoration: activeTab === 'observations' ? 'underline dotted' : undefined,
+                            }}
                             title={activeTab === 'observations' ? 'Clique para adicionar observação' : ''}
                           >
                             {st.full_name}
@@ -410,8 +414,17 @@ export default function DiarioPage() {
                               </td>
                             )
                           })}
-                          <td style={{ padding: '8px', textAlign: 'center', fontSize: 12, borderBottom: '1px solid var(--border)', color: lastObs ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
-                            {lastObs ? formatDateBR(lastObs) : '-'}
+                          <td style={{ padding: '8px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
+                            {activeTab === 'observations' ? (
+                              <button className="btn btn-sm btn-ghost" onClick={(e) => openObsMenu(st.id, e)}
+                                style={{ fontSize: 11, padding: '2px 8px' }}>
+                                + Obs.
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: 12, color: lastObs ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
+                                {lastObs ? formatDateBR(lastObs) : '-'}
+                              </span>
+                            )}
                           </td>
                         </>
                       )}
