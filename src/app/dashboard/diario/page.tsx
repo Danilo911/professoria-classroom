@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, X, Check, Calendar, Mic, Loader2, FileText } from 'lucide-react'
+import { Plus, X, Check, Calendar, Mic, Loader2, FileText, Download, Edit2 } from 'lucide-react'
 import { getClasses, getClassStudents, getDiaryEntries, createDiaryEntry, updateDiaryEntry, getDiaryEntryByDate, getStudentObservations, createStudentObservation, getGrades, upsertGrade, getClassSummary } from '@/lib/db'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { useToast } from '@/lib/toast'
@@ -60,11 +60,13 @@ export default function DiarioPage() {
   const [editingCell, setEditingCell] = useState<{ studentId: string; subject: string; bimestre: number } | null>(null)
   const [obsMenu, setObsMenu] = useState<{ studentId: string; x: number; y: number; view: 'menu' | 'form' | 'history' } | null>(null)
   const [obsForm, setObsForm] = useState({ category: 'general', severity: 'info', content: '' })
-  const [entryForm, setEntryForm] = useState({ type: 'general', title: '', content: '' })
-  const [showNewEntry, setShowNewEntry] = useState(false)
   const { toast } = useToast()
   const today = getTodayBR()
   const menuRef = useRef<HTMLDivElement>(null)
+  const [entryForm, setEntryForm] = useState({ type: 'general', title: '', content: '', date: today })
+  const [showNewEntry, setShowNewEntry] = useState(false)
+  const [showTodayForm, setShowTodayForm] = useState(false)
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
 
   const obsSpeech = useSpeechRecognition(
     (text) => setObsForm(prev => ({ ...prev, content: prev.content ? prev.content + ' ' + text : text })),
@@ -110,7 +112,7 @@ export default function DiarioPage() {
       setEntries(entriesData)
       setTodayEntry(todayEntryData)
       if (todayEntryData) {
-        setEntryForm({ type: todayEntryData.type, title: todayEntryData.title || '', content: todayEntryData.content })
+        setEntryForm({ type: todayEntryData.type, title: todayEntryData.title || '', content: todayEntryData.content, date: today })
       }
 
       const [gradesData, obsResults] = await Promise.all([
@@ -198,26 +200,74 @@ export default function DiarioPage() {
     }
   }
 
-  async function handleSaveTodayEntry(e: React.FormEvent) {
+  async function handleSaveEntry(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     try {
-      if (todayEntry) {
-        const updated = await updateDiaryEntry(todayEntry.id, entryForm)
-        setTodayEntry(updated)
+      if (editingEntryId) {
+        const updated = await updateDiaryEntry(editingEntryId, {
+          type: entryForm.type, title: entryForm.title || undefined, content: entryForm.content,
+        })
         setEntries(prev => prev.map(en => en.id === updated.id ? updated : en))
+        if (updated.date === today) setTodayEntry(updated)
         toast('Registro atualizado!', 'success')
+      } else if (showTodayForm) {
+        if (todayEntry) {
+          const updated = await updateDiaryEntry(todayEntry.id, {
+            type: entryForm.type, title: entryForm.title || undefined, content: entryForm.content,
+          })
+          setTodayEntry(updated)
+          setEntries(prev => prev.map(en => en.id === updated.id ? updated : en))
+          toast('Registro atualizado!', 'success')
+        } else {
+          const created = await createDiaryEntry({
+            class_id: selectedClass, type: entryForm.type, title: entryForm.title || undefined, content: entryForm.content,
+          })
+          setTodayEntry(created)
+          setEntries(prev => [created, ...prev])
+          toast('Registro criado!', 'success')
+        }
       } else {
         const created = await createDiaryEntry({
-          class_id: selectedClass, type: entryForm.type, title: entryForm.title || undefined, content: entryForm.content,
+          class_id: selectedClass, type: entryForm.type, title: entryForm.title || undefined,
+          content: entryForm.content, tags: [],
         })
-        setTodayEntry(created)
-        setEntries(prev => [created, ...prev])
+        setEntries(prev => {
+          const withDate = entries.filter(e => e.date !== entryForm.date)
+          return [created, ...withDate].sort((a, b) => b.date.localeCompare(a.date))
+        })
         toast('Registro criado!', 'success')
       }
       setShowNewEntry(false)
+      setShowTodayForm(false)
+      setEditingEntryId(null)
+      setEntryForm({ type: 'general', title: '', content: '', date: today })
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao salvar', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleEditEntry(entry: DiaryEntry) {
+    setEditingEntryId(entry.id)
+    setEntryForm({ type: entry.type, title: entry.title || '', content: entry.content, date: entry.date })
+    setShowNewEntry(true)
+    setShowTodayForm(false)
+  }
+
+  async function handleDeleteEntry(id: string) {
+    if (!confirm('Excluir este registro?')) return
+    setSaving(true)
+    try {
+      const supabase = (await import('@/lib/supabase/client')).createClient()
+      const { error } = await supabase.from('diary_entries').delete().eq('id', id)
+      if (error) throw error
+      setEntries(prev => prev.filter(e => e.id !== id))
+      if (id === todayEntry?.id) setTodayEntry(null)
+      toast('Registro excluído', 'info')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao excluir', 'error')
     } finally {
       setSaving(false)
     }
@@ -298,9 +348,22 @@ export default function DiarioPage() {
           entryForm={entryForm}
           saving={saving}
           showNewEntry={showNewEntry}
+          showTodayForm={showTodayForm}
           onFormChange={setEntryForm}
-          onSave={handleSaveTodayEntry}
-          onToggleNew={() => setShowNewEntry(!showNewEntry)}
+          onSave={handleSaveEntry}
+          onToggleNew={() => { setShowNewEntry(!showNewEntry); setShowTodayForm(false); setEditingEntryId(null); setEntryForm({ type: 'general', title: '', content: '', date: today }) }}
+          onToggleToday={() => {
+            setShowTodayForm(!showTodayForm)
+            setShowNewEntry(false)
+            setEditingEntryId(null)
+            if (todayEntry) {
+              setEntryForm({ type: todayEntry.type, title: todayEntry.title || '', content: todayEntry.content, date: today })
+            } else {
+              setEntryForm({ type: 'general', title: '', content: '', date: today })
+            }
+          }}
+          onEdit={handleEditEntry}
+          onDelete={handleDeleteEntry}
         />
       ) : (
         <>
@@ -558,13 +621,14 @@ export default function DiarioPage() {
 }
 
 function RecordsTab({
-  entries, today, todayEntry, entryForm, saving, showNewEntry,
-  onFormChange, onSave, onToggleNew,
+  entries, today, todayEntry, entryForm, saving, showNewEntry, showTodayForm,
+  onFormChange, onSave, onToggleNew, onToggleToday, onEdit, onDelete,
 }: {
   entries: DiaryEntry[]; today: string; todayEntry: DiaryEntry | null
-  entryForm: { type: string; title: string; content: string }; saving: boolean; showNewEntry: boolean
-  onFormChange: (f: { type: string; title: string; content: string }) => void
-  onSave: (e: React.FormEvent) => Promise<void>; onToggleNew: () => void
+  entryForm: { type: string; title: string; content: string; date: string }; saving: boolean; showNewEntry: boolean; showTodayForm: boolean
+  onFormChange: (f: { type: string; title: string; content: string; date: string }) => void
+  onSave: (e: React.FormEvent) => Promise<void>; onToggleNew: () => void; onToggleToday: () => void
+  onEdit: (entry: DiaryEntry) => void; onDelete: (id: string) => void
 }) {
   const { toast } = useToast()
   const speech = useSpeechRecognition(
@@ -572,19 +636,44 @@ function RecordsTab({
     (err) => toast(err, 'error')
   )
 
+  function exportEntries() {
+    const header = 'Data,Tipo,Título,Conteúdo\n'
+    const rows = entries.map(e => {
+      const type = DIARY_TYPES.find(t => t.key === e.type)?.label || e.type
+      const title = (e.title || '').replace(/"/g, '""')
+      const content = e.content.replace(/"/g, '""')
+      return `${formatDateBR(e.date)},"${type}","${title}","${content}"`
+    }).join('\n')
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `registros-${today}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast('Registros exportados!', 'success')
+  }
+
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="btn btn-sm btn-primary" onClick={onToggleNew}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <button className="btn btn-sm btn-primary" onClick={onToggleToday}>
+          {showTodayForm ? <X size={16} /> : <Calendar size={16} />}
+          {showTodayForm ? 'Cancelar' : (todayEntry ? 'Editar registro de hoje' : 'Registro de hoje')}
+        </button>
+        <button className="btn btn-sm btn-secondary" onClick={onToggleNew}>
           {showNewEntry ? <X size={16} /> : <Plus size={16} />}
           {showNewEntry ? 'Cancelar' : 'Novo registro'}
         </button>
+        <button className="btn btn-sm btn-ghost" onClick={exportEntries} style={{ marginLeft: 'auto' }}>
+          <Download size={16} /> Exportar
+        </button>
       </div>
 
-      {showNewEntry && (
-        <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+      {showTodayForm && (
+        <div className="card" style={{ padding: 20, marginBottom: 16, borderLeft: '3px solid var(--primary)' }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>
-            {todayEntry ? 'Editando registro de hoje' : 'Registro de hoje'}
+            Registro de hoje
             <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>{formatDateBR(today)}</span>
           </h3>
           <form onSubmit={onSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -629,6 +718,56 @@ function RecordsTab({
         </div>
       )}
 
+      {showNewEntry && (
+        <div className="card" style={{ padding: 20, marginBottom: 16, borderLeft: '3px solid var(--success)' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Novo registro</h3>
+          <form onSubmit={onSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 140 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, marginBottom: 4, color: 'var(--text-secondary)' }}>Data</label>
+                <input className="input" type="date" value={entryForm.date} max={today} required
+                  onChange={e => onFormChange({ ...entryForm, date: e.target.value })} />
+              </div>
+              <div style={{ flex: 1, minWidth: 140 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, marginBottom: 4, color: 'var(--text-secondary)' }}>Tipo</label>
+                <select className="input" value={entryForm.type}
+                  onChange={e => onFormChange({ ...entryForm, type: e.target.value })}>
+                  {DIARY_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 2, minWidth: 200 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, marginBottom: 4, color: 'var(--text-secondary)' }}>Título (opcional)</label>
+                <input className="input" placeholder="Ex: Aula de Matemática" value={entryForm.title}
+                  onChange={e => onFormChange({ ...entryForm, title: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, marginBottom: 4, color: 'var(--text-secondary)' }}>Conteúdo</label>
+              <textarea className="input" rows={3} placeholder="Descreva o registro ou use o microfone..." value={entryForm.content} required
+                onChange={e => onFormChange({ ...entryForm, content: e.target.value })}
+                style={{ paddingRight: 36 }} />
+              <button type="button" onClick={speech.toggleListening} disabled={speech.status === 'loading'}
+                style={{
+                  position: 'absolute', right: 12, bottom: 12, width: 28, height: 28,
+                  borderRadius: 6, border: 'none', cursor: speech.status === 'loading' ? 'wait' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: speech.status === 'listening' ? 'var(--danger)' : speech.status === 'loading' ? 'var(--warning)' : 'transparent',
+                  color: speech.status === 'listening' ? 'white' : speech.status === 'loading' ? 'white' : 'var(--text-muted)',
+                  transition: 'all 0.15s',
+                }}
+                title={speech.status === 'loading' ? 'Carregando modelo...' : speech.status === 'listening' ? 'Parar gravação' : 'Gravar por voz'}>
+                {speech.status === 'loading' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mic size={14} />}
+              </button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="submit" className="btn btn-primary" disabled={saving || !entryForm.content.trim()}>
+                {saving ? 'Salvando...' : 'Salvar registro'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
@@ -637,17 +776,20 @@ function RecordsTab({
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, borderBottom: '2px solid var(--border)', minWidth: 100 }}>Tipo</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, borderBottom: '2px solid var(--border)', minWidth: 140 }}>Título</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, borderBottom: '2px solid var(--border)' }}>Conteúdo</th>
+              <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid var(--border)', width: 80 }}>Ações</th>
             </tr>
           </thead>
           <tbody>
             {entries.length === 0 ? (
-              <tr><td colSpan={4} style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum registro encontrado.</td></tr>
+              <tr><td colSpan={5} style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum registro encontrado.</td></tr>
             ) : entries.map((entry, idx) => {
               const cat = DIARY_TYPES.find(t => t.key === entry.type) || DIARY_TYPES[0]
+              const isToday = entry.date === today
               return (
-                <tr key={entry.id} style={{ background: idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}>
+                <tr key={entry.id} style={{ background: idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)', ...(isToday ? { background: 'rgba(99, 102, 241, 0.05)' } : {}) }}>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                     {formatDateBR(entry.date)}
+                    {isToday && <span style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 600, marginLeft: 4 }}>Hoje</span>}
                   </td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
                     <span className="badge" style={{ background: `${cat.color}15`, color: cat.color }}>{cat.label}</span>
@@ -657,6 +799,16 @@ function RecordsTab({
                   </td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {entry.content}
+                  </td>
+                  <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                      <button className="btn btn-icon btn-ghost" onClick={() => onEdit(entry)} style={{ width: 28, height: 28, padding: 0 }} title="Editar">
+                        <Edit2 size={14} />
+                      </button>
+                      <button className="btn btn-icon btn-ghost" onClick={() => onDelete(entry.id)} style={{ width: 28, height: 28, padding: 0, color: 'var(--danger)' }} title="Excluir">
+                        <X size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )
