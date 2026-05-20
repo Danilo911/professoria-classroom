@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, Sparkles, Copy, Check, Pencil, Save, Mic, Loader2 } from 'lucide-react'
+import { Upload, Sparkles, Copy, Check, Pencil, Save, Mic, Loader2, ExternalLink } from 'lucide-react'
 import { useToast } from '@/lib/toast'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 
@@ -121,6 +121,22 @@ export default function GierPage() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, marginBottom: 4 }}>Gerador GIER</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Envie uma atividade e a IA gera a descrição para o GIER</p>
+      </div>
+
+      <div style={{
+        background: 'var(--primary-50)', border: '1px solid var(--primary-100)',
+        borderRadius: 'var(--radius-lg)', padding: '10px 16px', marginBottom: 24,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        fontSize: 14,
+      }}>
+        <span style={{ color: 'var(--text-primary)' }}>
+          ⚡ Quer usar o GIER sem criar conta?
+        </span>
+        <a href="/gier" target="_blank" style={{ textDecoration: 'none' }}>
+          <button className="btn btn-primary btn-sm">
+            <ExternalLink size={14} /> Versão gratuita
+          </button>
+        </a>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: result ? '1fr 1fr' : '1fr', gap: 24, maxWidth: 1000 }}>
