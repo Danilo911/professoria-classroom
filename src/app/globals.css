@@ -123,6 +123,20 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.02em;
 }
 
+main {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+main > * {
+  max-width: 100%;
+}
+
+img, table, pre, code, .card, .stat-card {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 /* ==========================================
    Component Styles
    ========================================== */
