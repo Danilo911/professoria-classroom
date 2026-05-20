@@ -204,32 +204,6 @@ export default function ChamadaPage() {
     toast('Aluno restaurado', 'info')
   }
 
-  function toggleDesktopHoliday(date: string) {
-    const wasHoliday = specialDays[date]?.type === 'holiday'
-    setSpecialDays(prev => {
-      const next = { ...prev }
-      if (wasHoliday) delete next[date]
-      else next[date] = { type: 'holiday', description: null }
-      return next
-    })
-    toast(wasHoliday ? 'Feriado removido' : 'Feriado marcado', 'info')
-    if (holidayTimeoutRef.current) clearTimeout(holidayTimeoutRef.current)
-    holidayTimeoutRef.current = setTimeout(async () => {
-      setSavingHolidays(true)
-      try {
-        if (!wasHoliday) {
-          await upsertHoliday(selectedClass, date, 'holiday', null)
-        } else {
-          await deleteHoliday(selectedClass, date)
-        }
-      } catch {
-        toast('Erro ao salvar feriado', 'error')
-      } finally {
-        setSavingHolidays(false)
-      }
-    }, 500)
-  }
-
   function openDayMenu(date: string, e: React.MouseEvent | React.TouchEvent) {
     const existing = specialDays[date]
     setDayMenuType(existing?.type || 'holiday')
@@ -453,7 +427,11 @@ export default function ChamadaPage() {
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444' }} /> Falta</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b' }} /> Justificado</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e' }} /> Presente</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3b82f6' }} /> Feriado</span>
+          {SPECIAL_DAY_TYPES.map(t => (
+            <span key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: t.color }} /> {t.label}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -596,18 +574,19 @@ export default function ChamadaPage() {
                     const { day, date: dayNum } = formatDayHeader(date)
                     const isFuture = date > today
                     const isToday = date === today
-                    const isHoliday = specialDays[date]?.type === 'holiday'
+                    const sd = specialDays[date]
+                    const sdInfo = sd ? getSpecialDayInfo(sd.type) : null
                     return (
-                      <th key={date} onClick={() => !isFuture && toggleDesktopHoliday(date)} style={{
+                      <th key={date} onClick={e => !isFuture && openDayMenu(date, e)} style={{
                         padding: '6px 4px', textAlign: 'center', fontWeight: 500, fontSize: 11,
                         borderBottom: '2px solid var(--border)', minWidth: 44,
-                        background: isHoliday ? 'rgba(59, 130, 246, 0.15)' : isToday ? 'var(--primary-light)' : 'var(--bg-secondary)',
-                        color: isFuture ? 'var(--text-muted)' : isHoliday ? '#3b82f6' : undefined,
+                        background: sd ? `${sdInfo?.color || '#3b82f6'}20` : isToday ? 'var(--primary-light)' : 'var(--bg-secondary)',
+                        color: isFuture ? 'var(--text-muted)' : sd ? (sdInfo?.color || '#3b82f6') : undefined,
                         cursor: isFuture ? 'default' : 'pointer',
-                      }} title={isHoliday ? 'Clique para remover feriado' : 'Clique para marcar como feriado'}>
-                        <div style={{ fontSize: 10, color: isHoliday ? '#3b82f6' : 'var(--text-muted)', textTransform: 'uppercase' }}>{day}</div>
+                      }} title={sd ? (sdInfo?.label || '') : isFuture ? '' : 'Clique para definir tipo de dia'}>
+                        <div style={{ fontSize: 10, color: sd ? (sdInfo?.color || '#3b82f6') : 'var(--text-muted)', textTransform: 'uppercase' }}>{day}</div>
                         <div style={{ fontSize: 13, fontWeight: 600 }}>{dayNum}</div>
-                        {isHoliday && <div style={{ fontSize: 8, marginTop: 2 }}>🏖</div>}
+                        {sd && <div style={{ fontSize: 8, marginTop: 2 }}>{sdInfo?.icon}</div>}
                       </th>
                     )
                   })}
@@ -650,25 +629,27 @@ export default function ChamadaPage() {
                       </td>
                       {dates.map(date => {
                         const isTransfered = !!(tDate && date >= tDate)
-                        const isHoliday = specialDays[date]?.type === 'holiday'
-                        const status = isTransfered || isHoliday ? null : (attendance[st.id]?.[date] || 'present')
+                        const sd = specialDays[date]
+                        const sdInfo = sd ? getSpecialDayInfo(sd.type) : null
+                        const isSpecialDay = !!sd
+                        const status = isTransfered || isSpecialDay ? null : (attendance[st.id]?.[date] || 'present')
                         const isFuture = date > today
                         return (
-                          <td key={date} style={{ padding: '4px', textAlign: 'center', borderBottom: '1px solid var(--border)', cursor: isFuture || isTransfered || isHoliday ? 'default' : 'pointer', opacity: isFuture ? 0.4 : 1 }}>
+                          <td key={date} style={{ padding: '4px', textAlign: 'center', borderBottom: '1px solid var(--border)', cursor: isFuture || isTransfered || isSpecialDay ? 'default' : 'pointer', opacity: isFuture ? 0.4 : 1 }}>
                             <button
-                              onClick={() => !isFuture && !isTransfered && !isHoliday && cycleStatus(st.id, date)}
-                              disabled={isTransfered || isHoliday}
+                              onClick={() => !isFuture && !isTransfered && !isSpecialDay && cycleStatus(st.id, date)}
+                              disabled={isTransfered || isSpecialDay}
                               style={{
                                 width: 28, height: 28, borderRadius: 6, border: 'none',
-                                background: isHoliday ? 'rgba(59, 130, 246, 0.15)' : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
-                                color: isHoliday ? '#3b82f6' : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
+                                background: isSpecialDay ? `${sdInfo?.color || '#3b82f6'}15` : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
+                                color: isSpecialDay ? (sdInfo?.color || '#3b82f6') : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: isFuture || isTransfered || isHoliday ? 'default' : 'pointer',
+                                cursor: isFuture || isTransfered || isSpecialDay ? 'default' : 'pointer',
                                 fontSize: 14,
                               }}
-                              title={isHoliday ? 'Feriado' : isTransfered ? `Transferido desde ${formatDateBR(tDate!)}` : status === 'present' ? 'Presente' : status === 'absent' ? 'Falta' : 'Justificado'}
+                              title={isSpecialDay ? (sdInfo?.label || '') : isTransfered ? `Transferido desde ${formatDateBR(tDate!)}` : status === 'present' ? 'Presente' : status === 'absent' ? 'Falta' : 'Justificado'}
                             >
-                               {isHoliday ? '🏖' : isTransfered ? <Minus size={16} /> : status === 'present' ? <Check size={16} /> : status === 'absent' ? <X size={16} /> : <FileText size={16} />}
+                               {isSpecialDay ? <Calendar size={14} /> : isTransfered ? <Minus size={16} /> : status === 'present' ? <Check size={16} /> : status === 'absent' ? <X size={16} /> : <FileText size={16} />}
                             </button>
                           </td>
                         )
