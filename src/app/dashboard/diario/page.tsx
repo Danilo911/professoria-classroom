@@ -230,12 +230,9 @@ export default function DiarioPage() {
       } else {
         const created = await createDiaryEntry({
           class_id: selectedClass, type: entryForm.type, title: entryForm.title || undefined,
-          content: entryForm.content, tags: [],
+          content: entryForm.content, tags: [], date: entryForm.date,
         })
-        setEntries(prev => {
-          const withDate = entries.filter(e => e.date !== entryForm.date)
-          return [created, ...withDate].sort((a, b) => b.date.localeCompare(a.date))
-        })
+        setEntries(prev => [created, ...prev].sort((a, b) => b.date.localeCompare(a.date)))
         toast('Registro criado!', 'success')
       }
       setShowNewEntry(false)

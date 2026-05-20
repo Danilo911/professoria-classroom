@@ -230,13 +230,13 @@ export async function getDiaryEntries(classId?: string): Promise<DiaryEntry[]> {
 }
 
 export async function createDiaryEntry(input: {
-  class_id: string; type: string; title?: string; content: string; tags?: string[]
+  class_id: string; type: string; title?: string; content: string; tags?: string[]; date?: string
 }): Promise<DiaryEntry> {
   const supabase = createClient()
   const userId = await getUserId()
   const { data, error } = await supabase
     .from('diary_entries')
-    .insert({ ...input, teacher_id: userId!, date: new Date().toISOString().split('T')[0] })
+    .insert({ ...input, teacher_id: userId!, date: input.date || new Date().toISOString().split('T')[0] })
     .select()
     .single()
   if (error) throw error
