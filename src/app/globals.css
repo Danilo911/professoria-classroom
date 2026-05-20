@@ -566,7 +566,7 @@ img, table, pre, code, .card, .stat-card {
   /* Main content padding */
   main {
     padding: 16px !important;
-    padding-bottom: 80px !important;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .stat-card { padding: 14px; }
