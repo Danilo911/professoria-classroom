@@ -442,10 +442,7 @@ export default function ChamadaPage() {
           {/* Mobile Card View (≤768px) */}
           <div className="mobile-only">
             {/* Date picker for mobile */}
-            <div style={{ marginBottom: 10 }}>
-              <label htmlFor="mobileDatePicker" style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
-                Selecionar data
-              </label>
+            <div style={{ marginBottom: 10, maxWidth: '100%', overflow: 'hidden' }}>
               <input
                 id="mobileDatePicker"
                 type="date"
@@ -453,7 +450,7 @@ export default function ChamadaPage() {
                 max={today}
                 onChange={e => setMobileRefDate(e.target.value)}
                 className="input"
-                style={{ width: '100%', padding: '8px 10px' }}
+                style={{ width: '100%', minWidth: 0 }}
               />
             </div>
 
@@ -587,7 +584,7 @@ export default function ChamadaPage() {
                         color: isFuture ? 'var(--text-muted)' : sd ? (sdInfo?.color || '#3b82f6') : undefined,
                         cursor: isFuture ? 'default' : 'pointer',
                       }}>
-                        <div style={{ fontSize: 10, color: sd ? (sdInfo?.color || '#3b82f6') : 'var(--text-muted)', textTransform: 'uppercase' }}>{sd ? sdInfo?.label.slice(0, 3) : day}</div>
+                        <div style={{ fontSize: 10, color: sd ? (sdInfo?.color || '#3b82f6') : 'var(--text-muted)', textTransform: 'uppercase' }}>{day}</div>
                         <div style={{ fontSize: 13, fontWeight: 600 }}>{dayNum}</div>
                       </th>
                     )
