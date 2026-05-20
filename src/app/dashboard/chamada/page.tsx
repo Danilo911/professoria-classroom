@@ -317,32 +317,32 @@ export default function ChamadaPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <h1 style={{ fontSize: 24, marginBottom: 4 }}>Chamada</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{selectedClass ? classes.find(c => c.id === selectedClass)?.name : ''}</p>
+          <h1 style={{ fontSize: 'clamp(18px, 4vw, 24px)', marginBottom: 4 }}>Chamada</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{selectedClass ? classes.find(c => c.id === selectedClass)?.name : ''}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {saving && <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Salvando...</span>}
-          {!saving && <span style={{ fontSize: 13, color: 'var(--success)' }}>✓ Salvo</span>}
+          {saving && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Salvando...</span>}
+          {!saving && <span className="mobile-hidden" style={{ fontSize: 12, color: 'var(--success)' }}>✓ Salvo</span>}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select className="input" style={{ maxWidth: 250 }} value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <select className="input" style={{ maxWidth: 220, flex: '1 1 160px', minWidth: 140 }} value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }} ref={monthPickerRef}>
-          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(-1)}><ChevronLeft size={18} /></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, position: 'relative' }} ref={monthPickerRef}>
+          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(-1)}><ChevronLeft size={16} /></button>
           <span
             onClick={() => setShowMonthPicker(!showMonthPicker)}
-            style={{ fontSize: 14, fontWeight: 600, minWidth: 140, textAlign: 'center', cursor: 'pointer', padding: '4px 8px', borderRadius: 6 }}
+            style={{ fontSize: 13, fontWeight: 600, minWidth: 100, textAlign: 'center', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, whiteSpace: 'nowrap' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            {MONTHS[currentMonth.month]} {currentMonth.year} ▾
+            {MONTHS[currentMonth.month].slice(0, 3)} {currentMonth.year} ▾
           </span>
-          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(1)} disabled={isFutureMonth}><ChevronRight size={18} /></button>
+          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(1)} disabled={isFutureMonth}><ChevronRight size={16} /></button>
           {showMonthPicker && (
             <div style={{
               position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
@@ -369,8 +369,7 @@ export default function ChamadaPage() {
             </div>
           )}
         </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+        <div className="legend-bar mobile-hidden" style={{ display: 'flex', gap: 12, fontSize: 12, flexWrap: 'wrap' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444' }} /> Falta</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b' }} /> Justificado</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e' }} /> Presente</span>

@@ -311,39 +311,39 @@ export default function DiarioPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <h1 style={{ fontSize: 24, marginBottom: 4 }}>Diário</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{selectedClass ? classes.find(c => c.id === selectedClass)?.name : ''}</p>
+          <h1 style={{ fontSize: 'clamp(18px, 4vw, 24px)', marginBottom: 4 }}>Diário</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{selectedClass ? classes.find(c => c.id === selectedClass)?.name : ''}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {saving && <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Salvando...</span>}
-          {!saving && <span style={{ fontSize: 13, color: 'var(--success)' }}>✓ Salvo</span>}
+          {saving && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Salvando...</span>}
+          {!saving && <span style={{ fontSize: 12, color: 'var(--success)' }}>✓ Salvo</span>}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select className="input" style={{ maxWidth: 250 }} value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <select className="input" style={{ maxWidth: 220, flex: '1 1 160px', minWidth: 140 }} value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {(['grades', 'observations', 'records'] as Tab[]).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`btn btn-sm ${activeTab === tab ? 'btn-primary' : 'btn-secondary'}`}>
-              {tab === 'grades' ? 'Notas' : tab === 'observations' ? 'Observações' : 'Registros'}
+              {tab === 'grades' ? 'Notas' : tab === 'observations' ? 'Observ.' : 'Registros'}
             </button>
           ))}
         </div>
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: 1, minWidth: 0 }} />
         {activeTab === 'grades' && (
-          <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+          <div className="legend-bar mobile-hidden" style={{ display: 'flex', gap: 12, fontSize: 12, flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e' }} /> ≥ 7</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b' }} /> 5-6.9</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444' }} /> &lt; 5</span>
           </div>
         )}
         {activeTab === 'observations' && (
-          <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+          <div className="legend-bar mobile-hidden" style={{ display: 'flex', gap: 12, fontSize: 12, flexWrap: 'wrap' }}>
             {OBSERVATION_CATEGORIES.map(c => (
               <span key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: c.color }} /> {c.label}

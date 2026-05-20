@@ -39,9 +39,9 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 4 }}>{greeting}, Professor! 👋</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 15 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 'clamp(20px, 4vw, 28px)', marginBottom: 4 }}>{greeting}, Professor! 👋</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
           {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
       </div>
@@ -50,7 +50,7 @@ export default function DashboardPage() {
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>Carregando...</div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
+          <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
             {statCards.map((s, i) => {
               const Icon = s.icon
               return (
@@ -68,7 +68,7 @@ export default function DashboardPage() {
           </div>
 
           <h2 style={{ fontSize: 18, marginBottom: 16 }}>Ações rápidas</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 32 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 24 }}>
             {quickActions.map((a, i) => {
               const Icon = a.icon
               return (

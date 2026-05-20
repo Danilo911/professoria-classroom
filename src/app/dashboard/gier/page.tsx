@@ -136,9 +136,9 @@ export default function GierPage() {
 
       <div style={{
         background: 'var(--primary-50)', border: '1px solid var(--primary-100)',
-        borderRadius: 'var(--radius-lg)', padding: '10px 16px', marginBottom: 24,
+        borderRadius: 'var(--radius-lg)', padding: '10px 16px', marginBottom: 20,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        fontSize: 14,
+        fontSize: 13, flexWrap: 'wrap', gap: 8,
       }}>
         <span style={{ color: 'var(--text-primary)' }}>
           ⚡ Quer usar o GIER sem criar conta?
@@ -150,7 +150,14 @@ export default function GierPage() {
         </a>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: result ? '1fr 1fr' : '1fr', gap: 24, maxWidth: 1000 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: result ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr', gap: 20, maxWidth: 1000 }} className={result ? 'gier-result-grid' : ''}>
+        <style jsx>{`
+          @media (max-width: 768px) {
+            .gier-result-grid {
+              grid-template-columns: 1fr !important;
+            }
+          }
+        `}</style>
         {/* Upload Area */}
         <div>
           {/* Descrição da atividade */}
@@ -178,7 +185,7 @@ export default function GierPage() {
           </div>
 
           <div onClick={() => fileRef.current?.click()}
-            style={{ border: '2px dashed var(--border)', borderRadius: 'var(--radius-xl)', padding: 48, textAlign: 'center', cursor: 'pointer', transition: 'all var(--transition-fast)', background: file ? 'var(--bg-secondary)' : 'transparent' }}
+            style={{ border: '2px dashed var(--border)', borderRadius: 'var(--radius-xl)', padding: 'clamp(24px, 5vw, 48px)', textAlign: 'center', cursor: 'pointer', transition: 'all var(--transition-fast)', background: file ? 'var(--bg-secondary)' : 'transparent' }}
             onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--primary)' }}
             onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
             onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border)'; if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]) }}>

@@ -4,30 +4,30 @@ export default function LandingPage() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <header style={{
-        padding: '16px 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--bg-surface)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 'var(--radius-md)',
-            background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', fontWeight: 800, fontSize: 18,
-          }}>P</div>
-          <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 700, fontSize: 20, color: 'var(--text-primary)' }}>
-            Professor<span style={{ color: 'var(--primary)' }}>IA</span>
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link href="/login" className="btn btn-ghost">Entrar</Link>
-          <Link href="/registro" className="btn btn-primary">Começar grátis</Link>
-        </div>
-      </header>
+        <header style={{
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--bg-surface)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 'var(--radius-md)',
+              background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontWeight: 800, fontSize: 16,
+            }}>P</div>
+            <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 700, fontSize: 18, color: 'var(--text-primary)' }}>
+              Professor<span style={{ color: 'var(--primary)' }}>IA</span>
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <Link href="/login" className="btn btn-ghost btn-sm">Entrar</Link>
+            <Link href="/registro" className="btn btn-primary btn-sm">Começar grátis</Link>
+          </div>
+        </header>
 
       {/* Hero */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', textAlign: 'center' }}>

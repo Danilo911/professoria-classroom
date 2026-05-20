@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, Users, ClipboardCheck, BookOpen,
   Sparkles, FileText, Calendar, Settings, LogOut,
-  Menu, X, ChevronLeft,
+  Menu, X, ChevronLeft, MoreHorizontal,
 } from 'lucide-react'
 
 const navItems = [
@@ -20,11 +20,16 @@ const navItems = [
   { href: '/dashboard/planejamento', label: 'Planejamento', icon: Calendar },
 ]
 
+// Bottom nav shows first 4 + "More" on mobile
+const bottomNavItems = navItems.slice(0, 4)
+const moreNavItems = navItems.slice(4)
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
 
   useEffect(() => {
     if (sessionStorage.getItem('sessionOnly') === 'true') {
@@ -47,6 +52,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [])
 
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setSidebarOpen(false)
+    setShowMoreMenu(false)
+  }, [pathname])
+
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -54,21 +65,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.refresh()
   }
 
+  const isMoreActive = moreNavItems.some(item =>
+    pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+  )
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
+          className="mobile-overlay"
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
             zIndex: 99, display: 'none',
           }}
-          className="mobile-overlay"
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar (Desktop) */}
       <aside
         className={`sidebar ${sidebarOpen ? 'open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}
         style={{
@@ -106,7 +121,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
           ) : (
             <>
-              <button onClick={() => setCollapsed(true)} className="btn btn-icon btn-ghost" style={{ display: 'block' }} title="Recolher menu">
+              <button onClick={() => setCollapsed(true)} className="btn btn-icon btn-ghost desktop-collapse" title="Recolher menu">
                 <ChevronLeft size={18} />
               </button>
               <button onClick={() => setSidebarOpen(false)} className="btn btn-icon btn-ghost mobile-close" style={{ display: 'none' }}>
@@ -172,7 +187,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header style={{
           display: 'none', /* shown via CSS on mobile */
           alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 16px', background: 'var(--bg-surface)',
+          padding: '10px 16px', background: 'var(--bg-surface)',
           borderBottom: '1px solid var(--border)',
           position: 'sticky', top: 0, zIndex: 50,
         }} className="mobile-header">
@@ -190,6 +205,75 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      {/* Bottom Navigation (Mobile) */}
+      <nav className="bottom-nav">
+        {bottomNavItems.map((item) => {
+          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+          const Icon = item.icon
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`bottom-nav-item ${isActive ? 'active' : ''}`}
+            >
+              <Icon size={20} />
+              <span>{item.label}</span>
+            </Link>
+          )
+        })}
+        {/* More button */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            className={`bottom-nav-item ${isMoreActive ? 'active' : ''}`}
+          >
+            <MoreHorizontal size={20} />
+            <span>Mais</span>
+          </button>
+          {showMoreMenu && (
+            <div style={{
+              position: 'absolute', bottom: '100%', right: 0,
+              background: 'var(--bg-surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-lg)', padding: 8, minWidth: 180,
+              boxShadow: 'var(--shadow-xl)', marginBottom: 8,
+            }}>
+              {moreNavItems.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href)
+                const Icon = item.icon
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`sidebar-link ${isActive ? 'active' : ''}`}
+                    onClick={() => setShowMoreMenu(false)}
+                  >
+                    <Icon size={18} />
+                    {item.label}
+                  </Link>
+                )
+              })}
+              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+              <Link
+                href="/dashboard/configuracoes"
+                className={`sidebar-link ${pathname.startsWith('/dashboard/configuracoes') ? 'active' : ''}`}
+                onClick={() => setShowMoreMenu(false)}
+              >
+                <Settings size={18} />
+                Configurações
+              </Link>
+              <button
+                onClick={() => { setShowMoreMenu(false); handleLogout() }}
+                className="sidebar-link"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', color: 'var(--danger)' }}
+              >
+                <LogOut size={18} />
+                Sair
+              </button>
+            </div>
+          )}
+        </div>
+      </nav>
 
       {/* Responsive CSS */}
       <style jsx global>{`
@@ -212,8 +296,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           .mobile-close {
             display: block !important;
           }
+          .desktop-collapse {
+            display: none !important;
+          }
           div[style*="marginLeft"] {
             margin-left: 0 !important;
+          }
+        }
+
+        @media (min-width: 769px) {
+          .bottom-nav {
+            display: none !important;
           }
         }
       `}</style>
