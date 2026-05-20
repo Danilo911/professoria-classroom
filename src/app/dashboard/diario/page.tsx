@@ -83,35 +83,39 @@ export default function DiarioPage() {
 
   async function loadData(classId: string) {
     setLoading(true)
-    const [studentsData, summaryData, entriesData, todayEntryData] = await Promise.all([
-      getClassStudents(classId),
-      getClassSummary(classId),
-      getDiaryEntries(classId),
-      getDiaryEntryByDate(classId, today),
-    ])
-    setStudents(studentsData)
-    setSummary(summaryData)
-    setEntries(entriesData)
-    setTodayEntry(todayEntryData)
-    if (todayEntryData) {
-      setEntryForm({ type: todayEntryData.type, title: todayEntryData.title || '', content: todayEntryData.content })
-    }
+    try {
+      const [studentsData, summaryData, entriesData, todayEntryData] = await Promise.all([
+        getClassStudents(classId),
+        getClassSummary(classId).catch(() => ({ totalStudents: 0, averageGrade: null, criticalObservations: 0 })),
+        getDiaryEntries(classId),
+        getDiaryEntryByDate(classId, today),
+      ])
+      setStudents(studentsData)
+      setSummary(summaryData)
+      setEntries(entriesData)
+      setTodayEntry(todayEntryData)
+      if (todayEntryData) {
+        setEntryForm({ type: todayEntryData.type, title: todayEntryData.title || '', content: todayEntryData.content })
+      }
 
-    const gradesData = await getGrades({ class_id: classId })
-    const map: Record<string, Grade[]> = {}
-    for (const st of studentsData) {
-      map[st.id] = gradesData.filter(g => g.student_id === st.id)
-    }
-    setGradesMap(map)
+      const gradesData = await getGrades({ class_id: classId }).catch(() => [])
+      const map: Record<string, Grade[]> = {}
+      for (const st of studentsData) {
+        map[st.id] = gradesData.filter(g => g.student_id === st.id)
+      }
+      setGradesMap(map)
 
-    const obsDataMap: Record<string, StudentObservation[]> = {}
-    for (const st of studentsData) {
-      const obs = await getStudentObservations(st.id, classId)
-      obsDataMap[st.id] = obs
+      const obsDataMap: Record<string, StudentObservation[]> = {}
+      for (const st of studentsData) {
+        const obs = await getStudentObservations(st.id, classId).catch(() => [])
+        obsDataMap[st.id] = obs
+      }
+      setObsMap(obsDataMap)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao carregar dados', 'error')
+    } finally {
+      setLoading(false)
     }
-    setObsMap(obsDataMap)
-
-    setLoading(false)
   }
 
   function getStudentGrade(studentId: string, subject: string, bimestre: number): number | null {
@@ -219,56 +223,56 @@ export default function DiarioPage() {
   function startListening() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) {
-      toast('Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.', 'error')
+      toast('Reconhecimento de voz não disponível. Use Chrome ou Edge.', 'error')
       return
     }
-    const recognition = new SpeechRecognition()
-    recognition.lang = 'pt-BR'
-    recognition.interimResults = true
-    recognition.continuous = true
-    recognition.onresult = (event: any) => {
-      let transcript = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript
-      }
-      if (event.results[event.results.length - 1].isFinal) {
+    try {
+      const recognition = new SpeechRecognition()
+      recognition.lang = 'pt-BR'
+      recognition.interimResults = false
+      recognition.continuous = false
+      recognition.maxAlternatives = 1
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript
         setObsForm(prev => ({
           ...prev,
           content: prev.content ? prev.content + ' ' + transcript : transcript,
         }))
-      } else {
-        setObsForm(prev => ({
-          ...prev,
-          content: prev.content ? prev.content + ' ' + transcript : transcript,
-        }))
+        setIsListening(false)
       }
-    }
-    recognition.onerror = () => {
+      recognition.onerror = (event: any) => {
+        setIsListening(false)
+        if (event.error === 'not-allowed') {
+          toast('Permissão do microfone negada', 'error')
+        } else if (event.error === 'no-speech') {
+          toast('Nenhuma fala detectada', 'info')
+        } else if (event.error !== 'aborted') {
+          toast('Erro no reconhecimento: ' + event.error, 'error')
+        }
+      }
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+      recognitionRef.current = recognition
+      recognition.start()
+      setIsListening(true)
+    } catch {
+      toast('Não foi possível iniciar o reconhecimento de voz', 'error')
       setIsListening(false)
-      toast('Erro no reconhecimento de voz', 'error')
     }
-    recognition.onend = () => {
-      setIsListening(false)
-    }
-    recognitionRef.current = recognition
-    recognition.start()
-    setIsListening(true)
   }
 
   function stopListening() {
     if (recognitionRef.current) {
-      recognitionRef.current.stop()
+      try { recognitionRef.current.stop() } catch {}
       recognitionRef.current = null
     }
     setIsListening(false)
   }
 
   function toggleListening() {
-    if (isListening) {
-      stopListening()
-    } else {
-      startListening()
-    }
+    if (isListening) stopListening()
+    else startListening()
   }
 
   if (loading) return <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>Carregando...</div>
@@ -559,35 +563,43 @@ function RecordsTab({
   function startListening() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) {
-      toast('Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.', 'error')
+      toast('Reconhecimento de voz não disponível. Use Chrome ou Edge.', 'error')
       return
     }
-    const recognition = new SpeechRecognition()
-    recognition.lang = 'pt-BR'
-    recognition.interimResults = true
-    recognition.continuous = true
-    recognition.onresult = (event: any) => {
-      let transcript = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript
+    try {
+      const recognition = new SpeechRecognition()
+      recognition.lang = 'pt-BR'
+      recognition.interimResults = false
+      recognition.continuous = false
+      recognition.maxAlternatives = 1
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript
+        onFormChange({ ...entryForm, content: entryForm.content ? entryForm.content + ' ' + transcript : transcript })
+        setIsListening(false)
       }
-      onFormChange({ ...entryForm, content: transcript })
-    }
-    recognition.onerror = () => {
+      recognition.onerror = (event: any) => {
+        setIsListening(false)
+        if (event.error === 'not-allowed') {
+          toast('Permissão do microfone negada', 'error')
+        } else if (event.error === 'no-speech') {
+          toast('Nenhuma fala detectada', 'info')
+        } else if (event.error !== 'aborted') {
+          toast('Erro no reconhecimento: ' + event.error, 'error')
+        }
+      }
+      recognition.onend = () => { setIsListening(false) }
+      recognitionRef.current = recognition
+      recognition.start()
+      setIsListening(true)
+    } catch {
+      toast('Não foi possível iniciar o reconhecimento de voz', 'error')
       setIsListening(false)
-      toast('Erro no reconhecimento de voz', 'error')
     }
-    recognition.onend = () => {
-      setIsListening(false)
-    }
-    recognitionRef.current = recognition
-    recognition.start()
-    setIsListening(true)
   }
 
   function stopListening() {
     if (recognitionRef.current) {
-      recognitionRef.current.stop()
+      try { recognitionRef.current.stop() } catch {}
       recognitionRef.current = null
     }
     setIsListening(false)
