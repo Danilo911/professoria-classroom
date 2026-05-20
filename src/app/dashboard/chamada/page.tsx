@@ -453,7 +453,7 @@ export default function ChamadaPage() {
                 max={today}
                 onChange={e => setMobileRefDate(e.target.value)}
                 className="input"
-                style={{ width: '100%', fontSize: 14, padding: '8px 10px' }}
+                style={{ width: '100%', padding: '8px 10px' }}
               />
             </div>
 
@@ -528,7 +528,7 @@ export default function ChamadaPage() {
                       </div>
                     </div>
 
-                    {/* 5 day cells */}
+                    {/* 5 day cells with labels */}
                     <div style={{ display: 'flex', gap: 4 }}>
                       {mobile5Days.map(date => {
                         const isTransfered = !!(tDate && date >= tDate)
@@ -537,8 +537,13 @@ export default function ChamadaPage() {
                         const isSpecialDay = !!sd
                         const status = isTransfered || isSpecialDay ? null : (attendance[st.id]?.[date] || 'present')
                         const isFuture = date > today
+                        const { day, date: dayNum } = formatDayHeader(date)
                         return (
-                          <div key={date} style={{ flex: 1 }}>
+                          <div key={date} style={{ flex: 1, textAlign: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, marginBottom: 4, height: 14 }}>
+                              <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>{day.slice(0, 1)} {dayNum}</span>
+                              {isSpecialDay && <Calendar size={8} style={{ color: sdInfo?.color || '#3b82f6', flexShrink: 0 }} />}
+                            </div>
                             <button
                               onClick={() => !isFuture && !isTransfered && !isSpecialDay && cycleStatus(st.id, date)}
                               disabled={isTransfered || isSpecialDay}
