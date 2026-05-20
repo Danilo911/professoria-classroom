@@ -389,15 +389,53 @@ export default function ChamadaPage() {
       ) : (
         <>
           {/* Mobile Card View (≤768px) */}
-          <div className="mobile-only" style={{ display: 'none' }}>
-            {/* Date picker */}
+          <div className="mobile-only">
+            {/* Date picker for mobile */}
             <div style={{ marginBottom: 10 }}>
-              <input type="date" value={mobileRefDate} max={today}
+              <label htmlFor="mobileDatePicker" style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+                Selecionar data
+              </label>
+              <input
+                id="mobileDatePicker"
+                type="date"
+                value={mobileRefDate}
+                max={today}
                 onChange={e => setMobileRefDate(e.target.value)}
-                className="input" style={{ width: '100%', fontSize: 14, padding: '8px 10px' }} />
+                className="input"
+                style={{ width: '100%', fontSize: 14, padding: '8px 10px' }}
+              />
             </div>
 
-            {/* Student cards with days inside */}
+            {/* Month header - days of week and dates */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(5, 1fr)', 
+              gap: 4, 
+              marginBottom: 8,
+              padding: '0 4px'
+            }}>
+              {mobile5Days.map(date => {
+                const { day, date: dayNum } = formatDayHeader(date)
+                const isHoliday = holidays.has(date)
+                const isWeekendDay = isWeekend(date)
+                return (
+                    <div key={date} style={{ 
+                      textAlign: 'center', 
+                      padding: '6px 0', 
+                      borderRadius: 6,
+                      background: isWeekendDay ? 'rgba(148, 163, 184, 0.1)' : 'transparent',
+                      color: isHoliday ? '#3b82f6' : isWeekendDay ? 'var(--text-muted)' : 'var(--text-secondary)',
+                      fontSize: 11,
+                      fontWeight: isHoliday ? 600 : 500
+                    }}>
+                    <div style={{ fontSize: 9, opacity: 0.8 }}>{day.slice(0, 2)}</div>
+                    <div style={{ fontWeight: 600 }}>{dayNum}</div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Student cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {students.map((st, idx) => {
                 const stats = getStudentStats(st.id)
@@ -466,7 +504,7 @@ export default function ChamadaPage() {
           </div>
 
           {/* Desktop Table View (>768px) */}
-          <div className="desktop-only" style={{ display: 'block' }}>
+          <div className="desktop-only">
             <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 800 }}>
               <thead>
@@ -487,7 +525,7 @@ export default function ChamadaPage() {
                       }} title={isHoliday ? 'Clique para remover feriado' : 'Clique para marcar como feriado'}>
                         <div style={{ fontSize: 10, color: isHoliday ? '#3b82f6' : 'var(--text-muted)', textTransform: 'uppercase' }}>{day}</div>
                         <div style={{ fontSize: 13, fontWeight: 600 }}>{dayNum}</div>
-                        {isHoliday && <div style={{ fontSize: 8, marginTop: 2 }}>🏖</div>}
+                        {isHoliday && <div style={{ fontSize: 8, marginTop: 2, width: 14, height: 14, borderRadius: '50%', background: '#3b82f6' }} />}
                       </th>
                     )
                   })}
@@ -548,7 +586,7 @@ export default function ChamadaPage() {
                               }}
                               title={isHoliday ? 'Feriado' : isTransfered ? `Transferido desde ${formatDateBR(tDate!)}` : status === 'present' ? 'Presente' : status === 'absent' ? 'Falta' : 'Justificado'}
                             >
-                              {isHoliday ? '🏖' : isTransfered ? <Minus size={16} /> : status === 'present' ? <Check size={16} /> : status === 'absent' ? <X size={16} /> : <FileText size={16} />}
+                               {isHoliday ? <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#3b82f6' }} /> : isTransfered ? <Minus size={16} /> : status === 'present' ? <Check size={16} /> : status === 'absent' ? <X size={16} /> : <FileText size={16} />}
                             </button>
                           </td>
                         )
