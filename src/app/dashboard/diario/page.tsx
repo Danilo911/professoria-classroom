@@ -59,6 +59,7 @@ export default function DiarioPage() {
   const [savingObs, setSavingObs] = useState(false)
   const [editingCell, setEditingCell] = useState<{ studentId: string; subject: string; bimestre: number } | null>(null)
   const [obsMenu, setObsMenu] = useState<{ studentId: string; x: number; y: number; view: 'menu' | 'form' | 'history' } | null>(null)
+  const [menuStyle, setMenuStyle] = useState<{ left: number; top: number }>({ left: 0, top: 0 })
   const [obsForm, setObsForm] = useState({ category: 'general', severity: 'info', content: '' })
   const { toast } = useToast()
   const today = getTodayISO()
@@ -95,10 +96,22 @@ export default function DiarioPage() {
   }, [selectedClass])
 
   useEffect(() => {
+    if (!obsMenu) return
+
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setObsMenu(null)
     }
-    if (obsMenu) document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('mousedown', handleClickOutside)
+
+    // Keep popup inside viewport
+    if (menuRef.current) {
+      const h = menuRef.current.offsetHeight
+      const maxTop = window.innerHeight - h - 8
+      if (menuStyle.top > maxTop) {
+        setMenuStyle(prev => ({ ...prev, top: Math.max(8, maxTop) }))
+      }
+    }
+
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [obsMenu])
 
@@ -178,6 +191,7 @@ export default function DiarioPage() {
     e.stopPropagation()
     const rect = (e.target as HTMLElement).getBoundingClientRect()
     setObsMenu({ studentId, x: rect.left, y: rect.bottom + 4, view: 'menu' })
+    setMenuStyle({ left: rect.left, top: rect.bottom + 4 })
     setObsForm({ category: 'general', severity: 'info', content: '' })
   }
 
@@ -515,7 +529,7 @@ export default function DiarioPage() {
 
       {obsMenu && (
         <div ref={menuRef} style={{
-          position: 'fixed', left: obsMenu.x, top: obsMenu.y,
+          position: 'fixed', left: menuStyle.left, top: menuStyle.top,
           background: 'var(--bg-primary)', border: '1px solid var(--border)',
           borderRadius: 8, padding: 12, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           minWidth: 300, maxWidth: 400,
