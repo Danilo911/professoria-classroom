@@ -461,8 +461,8 @@ export default function ChamadaPage() {
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'repeat(5, 1fr)', 
-              gap: 3, 
-              marginBottom: 8,
+              gap: 2, 
+              marginBottom: 6,
             }}>
               {mobile5Days.map(date => {
                 const { day, date: dayNum } = formatDayHeader(date)
@@ -476,21 +476,17 @@ export default function ChamadaPage() {
                     onClick={e => !isFuture && openDayMenu(date, e)}
                     style={{ 
                       textAlign: 'center', 
-                      padding: '5px 0',
-                      borderRadius: 6,
+                      padding: '3px 0',
+                      borderRadius: 4,
                       cursor: isFuture ? 'default' : 'pointer',
                       background: sd ? `${sdInfo?.color || '#3b82f6'}20` : isWeekendDay ? 'rgba(148, 163, 184, 0.1)' : 'transparent',
                       color: sd ? (sdInfo?.color || '#3b82f6') : isWeekendDay ? 'var(--text-muted)' : 'var(--text-secondary)',
-                      fontSize: 10,
+                      fontSize: 9,
                       fontWeight: sd ? 600 : 500,
-                      transition: 'background 0.15s',
                     }}
-                    onMouseEnter={e => { if (!isFuture) (e.currentTarget.style.background = sd ? `${sdInfo?.color || '#3b82f6'}35` : 'rgba(148, 163, 184, 0.2)') }}
-                    onMouseLeave={e => { if (!isFuture) (e.currentTarget.style.background = sd ? `${sdInfo?.color || '#3b82f6'}20` : isWeekendDay ? 'rgba(148, 163, 184, 0.1)' : 'transparent') }}
                   >
-                    <div style={{ fontSize: 8, opacity: 0.8 }}>{day.slice(0, 3)}</div>
+                    <div style={{ fontSize: 7, opacity: 0.8 }}>{day.slice(0, 3)}</div>
                     <div style={{ fontWeight: 600 }}>{dayNum}</div>
-                    {sd && <div style={{ fontSize: 6, marginTop: 1 }}>{sdInfo?.label.slice(0, 3)}</div>}
                   </div>
                 )
               })}
@@ -502,7 +498,7 @@ export default function ChamadaPage() {
                 const stats = getStudentStats(st.id)
                 const tDate = transferredDate[st.id]
                 return (
-                  <div key={st.id} className="card" style={{ padding: '10px 8px' }}>
+                  <div key={st.id} className="card" style={{ padding: '10px 4px' }}>
                     {/* Student header */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 4 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
@@ -520,14 +516,14 @@ export default function ChamadaPage() {
                           }}>{st.full_name}</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: stats.effectiveAbsent > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>{stats.effectiveAbsent}</span>
                         <span style={{ fontSize: 12, fontWeight: 700, color: stats.pct >= 75 ? 'var(--success)' : stats.pct >= 50 ? 'var(--warning)' : 'var(--danger)' }}>{stats.total === 0 ? '-' : `${stats.pct}%`}</span>
                       </div>
                     </div>
 
                     {/* 5 day cells with labels */}
-                    <div style={{ display: 'flex', gap: 3 }}>
+                    <div style={{ display: 'flex', gap: 1, overflow: 'hidden' }}>
                       {mobile5Days.map(date => {
                         const isTransfered = !!(tDate && date >= tDate)
                         const sd = specialDays[date]
@@ -537,22 +533,21 @@ export default function ChamadaPage() {
                         const isFuture = date > today
                         const { day, date: dayNum } = formatDayHeader(date)
                         return (
-                          <div key={date} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, marginBottom: 2, height: 12 }}>
-                              <span style={{ fontSize: 8, color: 'var(--text-muted)', fontWeight: 500, lineHeight: 1 }}>{day.slice(0, 3)} {dayNum}</span>
-                              {isSpecialDay && <Calendar size={7} style={{ color: sdInfo?.color || '#3b82f6', flexShrink: 0 }} />}
+                          <div key={date} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
+                            <div style={{ textAlign: 'center', marginBottom: 1, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                              <span style={{ fontSize: 7, color: 'var(--text-muted)', fontWeight: 500 }}>{day.slice(0, 3)} {dayNum}</span>
                             </div>
                             <button
                               onClick={() => !isFuture && !isTransfered && !isSpecialDay && cycleStatus(st.id, date)}
                               disabled={isTransfered || isSpecialDay}
                               style={{
-                                width: '100%', height: 36, borderRadius: 6, border: 'none',
+                                width: '100%', height: 44, borderRadius: 6, border: 'none',
                                 background: isSpecialDay ? `${sdInfo?.color || '#3b82f6'}15` : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
                                 color: isSpecialDay ? (sdInfo?.color || '#3b82f6') : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 cursor: isFuture || isTransfered || isSpecialDay ? 'default' : 'pointer',
                                 opacity: isFuture ? 0.4 : 1,
-                                padding: 0,
+                                padding: 0, minWidth: 0,
                               }}
                             >
                               {isTransfered ? <Minus size={14} /> : 
