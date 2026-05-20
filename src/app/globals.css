@@ -550,15 +550,13 @@ img, table, pre, code, .card, .stat-card {
   }
 }
 
-/* ---- Tablet / Small screens (≤ 768px) ---- */
-@media (max-width: 768px) {
-  .mobile-only {
-    display: block !important;
-  }
+/* ---- Mobile / Desktop visibility ---- */
+.mobile-only { display: none !important; }
+.desktop-only { display: block !important; }
 
-  .desktop-only {
-    display: none !important;
-  }
+@media (max-width: 768px) {
+  .mobile-only { display: block !important; }
+  .desktop-only { display: none !important; }
 
   .sidebar.open {
     left: 0;
