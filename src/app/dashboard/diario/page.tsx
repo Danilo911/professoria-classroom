@@ -98,7 +98,13 @@ export default function DiarioPage() {
         setEntryForm({ type: todayEntryData.type, title: todayEntryData.title || '', content: todayEntryData.content })
       }
 
-      const gradesData = await getGrades({ class_id: classId }).catch(() => [])
+      const [gradesData, obsResults] = await Promise.all([
+        getGrades({ class_id: classId }).catch(() => []),
+        Promise.all(studentsData.map(st =>
+          getStudentObservations(st.id, classId).catch(() => [])
+        )),
+      ])
+
       const map: Record<string, Grade[]> = {}
       for (const st of studentsData) {
         map[st.id] = gradesData.filter(g => g.student_id === st.id)
@@ -106,10 +112,7 @@ export default function DiarioPage() {
       setGradesMap(map)
 
       const obsDataMap: Record<string, StudentObservation[]> = {}
-      for (const st of studentsData) {
-        const obs = await getStudentObservations(st.id, classId).catch(() => [])
-        obsDataMap[st.id] = obs
-      }
+      studentsData.forEach((st, i) => { obsDataMap[st.id] = obsResults[i] })
       setObsMap(obsDataMap)
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao carregar dados', 'error')
@@ -246,8 +249,10 @@ export default function DiarioPage() {
           toast('Permissão do microfone negada', 'error')
         } else if (event.error === 'no-speech') {
           toast('Nenhuma fala detectada', 'info')
+        } else if (event.error === 'network') {
+          toast('Erro de rede. Verifique sua conexão com a internet.', 'error')
         } else if (event.error !== 'aborted') {
-          toast('Erro no reconhecimento: ' + event.error, 'error')
+          toast('Erro no reconhecimento de voz', 'error')
         }
       }
       recognition.onend = () => {
@@ -583,8 +588,10 @@ function RecordsTab({
           toast('Permissão do microfone negada', 'error')
         } else if (event.error === 'no-speech') {
           toast('Nenhuma fala detectada', 'info')
+        } else if (event.error === 'network') {
+          toast('Erro de rede. Verifique sua conexão com a internet.', 'error')
         } else if (event.error !== 'aborted') {
-          toast('Erro no reconhecimento: ' + event.error, 'error')
+          toast('Erro no reconhecimento de voz', 'error')
         }
       }
       recognition.onend = () => { setIsListening(false) }
