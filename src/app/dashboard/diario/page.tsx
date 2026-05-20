@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, X, Check, Calendar, Mic, Loader2 } from 'lucide-react'
+import { Plus, X, Check, Calendar, Mic, Loader2, FileText } from 'lucide-react'
 import { getClasses, getClassStudents, getDiaryEntries, createDiaryEntry, updateDiaryEntry, getDiaryEntryByDate, getStudentObservations, createStudentObservation, getGrades, upsertGrade, getClassSummary } from '@/lib/db'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { useToast } from '@/lib/toast'
@@ -18,6 +18,12 @@ const OBSERVATION_CATEGORIES = [
   { key: 'evolution', label: 'Evolução', color: '#10B981' },
   { key: 'intervention', label: 'Intervenção', color: '#3B82F6' },
   { key: 'general', label: 'Geral', color: '#6366F1' },
+]
+
+const SEVERITY_OPTIONS = [
+  { key: 'info', label: 'Info', color: '#3B82F6' },
+  { key: 'attention', label: 'Atenção', color: '#F59E0B' },
+  { key: 'critical', label: 'Crítico', color: '#EF4444' },
 ]
 
 const DIARY_TYPES = [
@@ -52,7 +58,7 @@ export default function DiarioPage() {
   const [saving, setSaving] = useState(false)
   const [savingObs, setSavingObs] = useState(false)
   const [editingCell, setEditingCell] = useState<{ studentId: string; subject: string; bimestre: number } | null>(null)
-  const [obsMenu, setObsMenu] = useState<{ studentId: string; x: number; y: number } | null>(null)
+  const [obsMenu, setObsMenu] = useState<{ studentId: string; x: number; y: number; view: 'menu' | 'form' | 'history' } | null>(null)
   const [obsForm, setObsForm] = useState({ category: 'general', severity: 'info', content: '' })
   const [entryForm, setEntryForm] = useState({ type: 'general', title: '', content: '' })
   const [showNewEntry, setShowNewEntry] = useState(false)
@@ -165,7 +171,7 @@ export default function DiarioPage() {
   function openObsMenu(studentId: string, e: React.MouseEvent) {
     e.stopPropagation()
     const rect = (e.target as HTMLElement).getBoundingClientRect()
-    setObsMenu({ studentId, x: rect.left, y: rect.bottom + 4 })
+    setObsMenu({ studentId, x: rect.left, y: rect.bottom + 4, view: 'menu' })
     setObsForm({ category: 'general', severity: 'info', content: '' })
   }
 
@@ -184,7 +190,7 @@ export default function DiarioPage() {
         [obsMenu.studentId]: [obs, ...(prev[obsMenu.studentId] || [])],
       }))
       setObsMenu(null)
-      toast('Observação adicionada!', 'success')
+      toast('Registro salvo!', 'success')
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao adicionar observação', 'error')
     } finally {
@@ -331,12 +337,8 @@ export default function DiarioPage() {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                           <span
                             onClick={(e) => activeTab === 'observations' && openObsMenu(st.id, e)}
-                            style={{
-                              cursor: activeTab === 'observations' ? 'pointer' : 'default',
-                              color: isCritical ? 'var(--danger)' : activeTab === 'observations' ? 'var(--primary)' : undefined,
-                              textDecoration: activeTab === 'observations' ? 'underline dotted' : undefined,
-                            }}
-                            title={activeTab === 'observations' ? 'Clique para adicionar observação' : ''}
+                            style={{ cursor: activeTab === 'observations' ? 'pointer' : 'default', color: isCritical ? 'var(--danger)' : undefined }}
+                            title={activeTab === 'observations' ? 'Clique para adicionar registro' : ''}
                           >
                             {st.full_name}
                           </span>
@@ -414,17 +416,8 @@ export default function DiarioPage() {
                               </td>
                             )
                           })}
-                          <td style={{ padding: '8px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
-                            {activeTab === 'observations' ? (
-                              <button className="btn btn-sm btn-ghost" onClick={(e) => openObsMenu(st.id, e)}
-                                style={{ fontSize: 11, padding: '2px 8px' }}>
-                                + Obs.
-                              </button>
-                            ) : (
-                              <span style={{ fontSize: 12, color: lastObs ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
-                                {lastObs ? formatDateBR(lastObs) : '-'}
-                              </span>
-                            )}
+                          <td style={{ padding: '8px', textAlign: 'center', fontSize: 12, borderBottom: '1px solid var(--border)', color: lastObs ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
+                            {lastObs ? formatDateBR(lastObs) : '-'}
                           </td>
                         </>
                       )}
@@ -461,56 +454,103 @@ export default function DiarioPage() {
           position: 'fixed', left: obsMenu.x, top: obsMenu.y,
           background: 'var(--bg-primary)', border: '1px solid var(--border)',
           borderRadius: 8, padding: 12, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          minWidth: 280,
+          minWidth: 300, maxWidth: 400,
         }}>
-          <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
-            {students.find(s => s.id === obsMenu.studentId)?.full_name}
-          </p>
-          <form onSubmit={handleCreateObservation} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Categoria</label>
-                <select className="input" value={obsForm.category}
-                  onChange={e => setObsForm(prev => ({ ...prev, category: e.target.value }))}
-                  style={{ fontSize: 12, padding: '4px 8px' }}>
-                  {OBSERVATION_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Severidade</label>
-                <select className="input" value={obsForm.severity}
-                  onChange={e => setObsForm(prev => ({ ...prev, severity: e.target.value }))}
-                  style={{ fontSize: 12, padding: '4px 8px' }}>
-                  <option value="info">Info</option>
-                  <option value="attention">Atenção</option>
-                  <option value="critical">Crítico</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ position: 'relative' }}>
-              <textarea className="input" rows={2} placeholder="Descreva a observação ou use o microfone..." value={obsForm.content} required
-                onChange={e => setObsForm(prev => ({ ...prev, content: e.target.value }))}
-                style={{ fontSize: 12, padding: '4px 8px', paddingRight: 36 }} />
-              <button type="button" onClick={obsSpeech.toggleListening} disabled={obsSpeech.status === 'loading'}
-                style={{
-                  position: 'absolute', right: 4, bottom: 4, width: 28, height: 28,
-                  borderRadius: 6, border: 'none', cursor: obsSpeech.status === 'loading' ? 'wait' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: obsSpeech.status === 'listening' ? 'var(--danger)' : obsSpeech.status === 'loading' ? 'var(--warning)' : 'transparent',
-                  color: obsSpeech.status === 'listening' ? 'white' : obsSpeech.status === 'loading' ? 'white' : 'var(--text-muted)',
-                  transition: 'all 0.15s',
-                }}
-                title={obsSpeech.status === 'loading' ? 'Carregando modelo...' : obsSpeech.status === 'listening' ? 'Parar gravação' : 'Gravar por voz'}>
-                {obsSpeech.status === 'loading' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mic size={14} />}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+              {students.find(s => s.id === obsMenu.studentId)?.full_name}
+            </p>
+            {obsMenu.view !== 'menu' && (
+              <button className="btn btn-icon btn-ghost" onClick={() => setObsMenu(prev => prev ? { ...prev, view: 'menu' } : null)}
+                style={{ width: 24, height: 24, padding: 0 }}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {obsMenu.view === 'menu' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <button className="btn btn-sm btn-primary" onClick={() => setObsMenu(prev => prev ? { ...prev, view: 'form' } : null)}
+                style={{ justifyContent: 'flex-start' }}>
+                <Plus size={16} /> Novo registro
+              </button>
+              <button className="btn btn-sm btn-secondary" onClick={() => setObsMenu(prev => prev ? { ...prev, view: 'history' } : null)}
+                style={{ justifyContent: 'flex-start' }}>
+                <FileText size={16} /> Ver registros ({(obsMap[obsMenu.studentId] || []).length})
               </button>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="btn btn-sm btn-secondary" onClick={() => setObsMenu(null)} style={{ flex: 1 }}>Cancelar</button>
-              <button type="submit" className="btn btn-sm btn-primary" disabled={savingObs || !obsForm.content.trim()} style={{ flex: 1 }}>
-                {savingObs ? '...' : 'Salvar'}
-              </button>
+          )}
+
+          {obsMenu.view === 'form' && (
+            <form onSubmit={handleCreateObservation} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Categoria</label>
+                  <select className="input" value={obsForm.category}
+                    onChange={e => setObsForm(prev => ({ ...prev, category: e.target.value }))}
+                    style={{ fontSize: 12, padding: '4px 8px' }}>
+                    {OBSERVATION_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Severidade</label>
+                  <select className="input" value={obsForm.severity}
+                    onChange={e => setObsForm(prev => ({ ...prev, severity: e.target.value }))}
+                    style={{ fontSize: 12, padding: '4px 8px' }}>
+                    <option value="info">Info</option>
+                    <option value="attention">Atenção</option>
+                    <option value="critical">Crítico</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <textarea className="input" rows={3} placeholder="Descreva o registro ou use o microfone..." value={obsForm.content} required
+                  onChange={e => setObsForm(prev => ({ ...prev, content: e.target.value }))}
+                  style={{ fontSize: 12, padding: '4px 8px', paddingRight: 36 }} />
+                <button type="button" onClick={obsSpeech.toggleListening} disabled={obsSpeech.status === 'loading'}
+                  style={{
+                    position: 'absolute', right: 4, bottom: 4, width: 28, height: 28,
+                    borderRadius: 6, border: 'none', cursor: obsSpeech.status === 'loading' ? 'wait' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: obsSpeech.status === 'listening' ? 'var(--danger)' : obsSpeech.status === 'loading' ? 'var(--warning)' : 'transparent',
+                    color: obsSpeech.status === 'listening' ? 'white' : obsSpeech.status === 'loading' ? 'white' : 'var(--text-muted)',
+                    transition: 'all 0.15s',
+                  }}
+                  title={obsSpeech.status === 'loading' ? 'Carregando modelo...' : obsSpeech.status === 'listening' ? 'Parar gravação' : 'Gravar por voz'}>
+                  {obsSpeech.status === 'loading' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mic size={14} />}
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn btn-sm btn-secondary" onClick={() => setObsMenu(null)} style={{ flex: 1 }}>Cancelar</button>
+                <button type="submit" className="btn btn-sm btn-primary" disabled={savingObs || !obsForm.content.trim()} style={{ flex: 1 }}>
+                  {savingObs ? '...' : 'Salvar'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {obsMenu.view === 'history' && (
+            <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {(obsMap[obsMenu.studentId] || []).length === 0 ? (
+                <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+                  Nenhum registro para este aluno.
+                </div>
+              ) : (obsMap[obsMenu.studentId] || []).map(obs => {
+                const cat = OBSERVATION_CATEGORIES.find(c => c.key === obs.category) || OBSERVATION_CATEGORIES[4]
+                const sev = SEVERITY_OPTIONS.find(s => s.key === obs.severity) || SEVERITY_OPTIONS[0]
+                return (
+                  <div key={obs.id} style={{ padding: 8, borderLeft: `3px solid ${sev.color}`, background: 'var(--bg-secondary)', borderRadius: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4, flexWrap: 'wrap' }}>
+                      <span className="badge" style={{ background: `${cat.color}15`, color: cat.color, fontSize: 10 }}>{cat.label}</span>
+                      <span className="badge" style={{ background: `${sev.color}15`, color: sev.color, fontSize: 10 }}>{sev.label}</span>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto' }}>{formatDateBR(obs.date)}</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, margin: 0 }}>{obs.content}</p>
+                  </div>
+                )
+              })}
             </div>
-          </form>
+          )}
         </div>
       )}
     </div>
