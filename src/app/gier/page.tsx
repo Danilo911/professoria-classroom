@@ -6,6 +6,7 @@ import { useToast } from '@/lib/toast'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { MicButton } from '@/components/ui/MicButton'
 import { fileToBase64 } from '@/lib/file'
+import { scheduleCorrection } from '@/lib/correctText'
 
 const DAILY_LIMIT = 5
 
@@ -53,7 +54,16 @@ export default function GierPublicPage() {
   }
 
   const descricaoSpeech = useSpeechRecognition(
-    (text) => setDescricao(prev => prev ? prev + ' ' + cleanSpeech(text) : cleanSpeech(text)),
+    (text) => {
+      const cleaned = cleanSpeech(text)
+      setDescricao(prev => {
+        const updated = prev ? prev + ' ' + cleaned : cleaned
+        scheduleCorrection(updated, (corrected) => {
+          setDescricao(p => p === updated ? corrected : p)
+        })
+        return updated
+      })
+    },
     (err) => toast(err, 'error'),
   )
 

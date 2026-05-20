@@ -7,6 +7,7 @@ import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { useToast } from '@/lib/toast'
 import { MicButton } from '@/components/ui/MicButton'
 import { getTodayISO, formatDateBR } from '@/lib/dates'
+import { scheduleCorrection } from '@/lib/correctText'
 import type { Class, Student, DiaryEntry, StudentObservation, Grade } from '@/types'
 
 type Tab = 'grades' | 'observations' | 'records'
@@ -68,7 +69,16 @@ export default function DiarioPage() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
 
   const obsSpeech = useSpeechRecognition(
-    (text) => setObsForm(prev => ({ ...prev, content: prev.content ? prev.content + ' ' + cleanSpeech(text) : cleanSpeech(text) })),
+    (text) => {
+      const cleaned = cleanSpeech(text)
+      setObsForm(prev => {
+        const updated = prev.content ? prev.content + ' ' + cleaned : cleaned
+        scheduleCorrection(updated, (corrected) => {
+          setObsForm(p => p.content === updated ? { ...p, content: corrected } : p)
+        })
+        return { ...prev, content: updated }
+      })
+    },
     (err) => toast(err, 'error')
   )
 
@@ -616,7 +626,14 @@ function RecordsTab({
 }) {
   const { toast } = useToast()
   const speech = useSpeechRecognition(
-    (text) => onFormChange({ ...entryForm, content: entryForm.content ? entryForm.content + ' ' + cleanSpeech(text) : cleanSpeech(text) }),
+    (text) => {
+      const cleaned = cleanSpeech(text)
+      const updated = entryForm.content ? entryForm.content + ' ' + cleaned : cleaned
+      onFormChange({ ...entryForm, content: updated })
+      scheduleCorrection(updated, (corrected) => {
+        onFormChange({ ...entryForm, content: corrected })
+      })
+    },
     (err) => toast(err, 'error')
   )
 
