@@ -440,7 +440,7 @@ export default function ChamadaPage() {
       ) : (
         <>
           {/* Mobile Card View (≤768px) */}
-          <div className="mobile-only">
+          <div className="mobile-only" style={{ width: '100%', overflow: 'hidden' }}>
             {/* Date picker for mobile */}
             <div style={{ marginBottom: 10, maxWidth: '100%', overflow: 'hidden' }}>
               <input
@@ -495,7 +495,7 @@ export default function ChamadaPage() {
                 const stats = getStudentStats(st.id)
                 const tDate = transferredDate[st.id]
                 return (
-                  <div key={st.id} className="card" style={{ padding: '10px 4px' }}>
+                  <div key={st.id} className="card" style={{ padding: '10px 4px', overflow: 'hidden' }}>
                     {/* Student header */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 4 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
