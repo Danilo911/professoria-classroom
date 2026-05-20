@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, X, Check, Calendar } from 'lucide-react'
+import { Plus, X, Check, Calendar, Mic } from 'lucide-react'
 import { getClasses, getClassStudents, getDiaryEntries, createDiaryEntry, updateDiaryEntry, getDiaryEntryByDate, getStudentObservations, createStudentObservation, getGrades, upsertGrade, getClassSummary } from '@/lib/db'
 import { useToast } from '@/lib/toast'
 import type { Class, Student, DiaryEntry, StudentObservation, Grade } from '@/types'
@@ -55,9 +55,11 @@ export default function DiarioPage() {
   const [obsForm, setObsForm] = useState({ category: 'general', severity: 'info', content: '' })
   const [entryForm, setEntryForm] = useState({ type: 'general', title: '', content: '' })
   const [showNewEntry, setShowNewEntry] = useState(false)
+  const [isListening, setIsListening] = useState(false)
   const { toast } = useToast()
   const today = getTodayBR()
   const menuRef = useRef<HTMLDivElement>(null)
+  const recognitionRef = useRef<any>(null)
 
   useEffect(() => {
     getClasses().then(data => {
@@ -212,6 +214,61 @@ export default function DiarioPage() {
   function hasCriticalObs(studentId: string): boolean {
     const obs = obsMap[studentId] || []
     return obs.some(o => o.severity === 'critical')
+  }
+
+  function startListening() {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      toast('Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.', 'error')
+      return
+    }
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'pt-BR'
+    recognition.interimResults = true
+    recognition.continuous = true
+    recognition.onresult = (event: any) => {
+      let transcript = ''
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript
+      }
+      if (event.results[event.results.length - 1].isFinal) {
+        setObsForm(prev => ({
+          ...prev,
+          content: prev.content ? prev.content + ' ' + transcript : transcript,
+        }))
+      } else {
+        setObsForm(prev => ({
+          ...prev,
+          content: prev.content ? prev.content + ' ' + transcript : transcript,
+        }))
+      }
+    }
+    recognition.onerror = () => {
+      setIsListening(false)
+      toast('Erro no reconhecimento de voz', 'error')
+    }
+    recognition.onend = () => {
+      setIsListening(false)
+    }
+    recognitionRef.current = recognition
+    recognition.start()
+    setIsListening(true)
+  }
+
+  function stopListening() {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+      recognitionRef.current = null
+    }
+    setIsListening(false)
+  }
+
+  function toggleListening() {
+    if (isListening) {
+      stopListening()
+    } else {
+      startListening()
+    }
   }
 
   if (loading) return <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>Carregando...</div>
@@ -456,9 +513,23 @@ export default function DiarioPage() {
                 </select>
               </div>
             </div>
-            <textarea className="input" rows={2} placeholder="Descreva a observação..." value={obsForm.content} required
-              onChange={e => setObsForm(prev => ({ ...prev, content: e.target.value }))}
-              style={{ fontSize: 12, padding: '4px 8px' }} />
+            <div style={{ position: 'relative' }}>
+              <textarea className="input" rows={2} placeholder="Descreva a observação ou use o microfone..." value={obsForm.content} required
+                onChange={e => setObsForm(prev => ({ ...prev, content: e.target.value }))}
+                style={{ fontSize: 12, padding: '4px 8px', paddingRight: 36 }} />
+              <button type="button" onClick={toggleListening}
+                style={{
+                  position: 'absolute', right: 4, bottom: 4, width: 28, height: 28,
+                  borderRadius: 6, border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isListening ? 'var(--danger)' : 'transparent',
+                  color: isListening ? 'white' : 'var(--text-muted)',
+                  transition: 'all 0.15s',
+                }}
+                title={isListening ? 'Parar gravação' : 'Gravar por voz'}>
+                <Mic size={14} />
+              </button>
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="btn btn-sm btn-secondary" onClick={() => setObsMenu(null)} style={{ flex: 1 }}>Cancelar</button>
               <button type="submit" className="btn btn-sm btn-primary" disabled={savingObs || !obsForm.content.trim()} style={{ flex: 1 }}>
@@ -481,6 +552,51 @@ function RecordsTab({
   onFormChange: (f: { type: string; title: string; content: string }) => void
   onSave: (e: React.FormEvent) => Promise<void>; onToggleNew: () => void
 }) {
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
+  const { toast } = useToast()
+
+  function startListening() {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      toast('Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.', 'error')
+      return
+    }
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'pt-BR'
+    recognition.interimResults = true
+    recognition.continuous = true
+    recognition.onresult = (event: any) => {
+      let transcript = ''
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript
+      }
+      onFormChange({ ...entryForm, content: transcript })
+    }
+    recognition.onerror = () => {
+      setIsListening(false)
+      toast('Erro no reconhecimento de voz', 'error')
+    }
+    recognition.onend = () => {
+      setIsListening(false)
+    }
+    recognitionRef.current = recognition
+    recognition.start()
+    setIsListening(true)
+  }
+
+  function stopListening() {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+      recognitionRef.current = null
+    }
+    setIsListening(false)
+  }
+
+  function toggleListening() {
+    if (isListening) stopListening()
+    else startListening()
+  }
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
@@ -511,10 +627,23 @@ function RecordsTab({
                   onChange={e => onFormChange({ ...entryForm, title: e.target.value })} />
               </div>
             </div>
-            <div>
+            <div style={{ position: 'relative' }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 500, marginBottom: 4, color: 'var(--text-secondary)' }}>O que trabalhamos hoje?</label>
-              <textarea className="input" rows={3} placeholder="Descreva as atividades, conteúdo e observações da aula..." value={entryForm.content} required
-                onChange={e => onFormChange({ ...entryForm, content: e.target.value })} />
+              <textarea className="input" rows={3} placeholder="Descreva as atividades ou use o microfone..." value={entryForm.content} required
+                onChange={e => onFormChange({ ...entryForm, content: e.target.value })}
+                style={{ paddingRight: 36 }} />
+              <button type="button" onClick={toggleListening}
+                style={{
+                  position: 'absolute', right: 12, bottom: 12, width: 28, height: 28,
+                  borderRadius: 6, border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isListening ? 'var(--danger)' : 'transparent',
+                  color: isListening ? 'white' : 'var(--text-muted)',
+                  transition: 'all 0.15s',
+                }}
+                title={isListening ? 'Parar gravação' : 'Gravar por voz'}>
+                <Mic size={14} />
+              </button>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button type="submit" className="btn btn-primary" disabled={saving || !entryForm.content.trim()}>
