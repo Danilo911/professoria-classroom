@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { analyzeGier, type GeminiGierRequest } from '@/lib/gemini'
+import { checkGrammar } from '@/lib/languagetool'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +11,11 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await analyzeGier(body)
+
+    if (result.description) {
+      const { corrected } = await checkGrammar(result.description)
+      result.description = corrected
+    }
 
     return NextResponse.json(result)
   } catch (error) {

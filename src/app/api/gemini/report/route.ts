@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { generateReport, type GeminiReportRequest } from '@/lib/gemini'
+import { checkGrammar } from '@/lib/languagetool'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -57,7 +58,10 @@ export async function POST(request: NextRequest) {
 
     const { content, provider } = await generateReport({ ...body, qsnSkills })
 
-    return NextResponse.json({ content, provider })
+    const { corrected } = await checkGrammar(content)
+    const corrections = corrected !== content
+
+    return NextResponse.json({ content: corrected, provider, corrected: corrections })
   } catch (error) {
     console.error('AI report error:', error)
     return NextResponse.json(
