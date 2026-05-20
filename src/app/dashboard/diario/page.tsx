@@ -382,7 +382,89 @@ export default function DiarioPage() {
         />
       ) : (
         <>
-          <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
+          {/* Mobile Card View (≤768px) */}
+          <div className="mobile-only" style={{ display: 'none' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {students.map((st, idx) => {
+                const avg = getStudentAverage(st.id)
+                const lastObs = getLastObsDate(st.id)
+                const isCritical = hasCriticalObs(st.id)
+                return (
+                  <div key={st.id} className="card" style={{ padding: 12 }}>
+                    {/* Student header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                          background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'white', fontWeight: 700, fontSize: 12,
+                        }}>{idx + 1}</div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{
+                            fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            color: isCritical ? 'var(--danger)' : undefined,
+                          }}>{st.full_name}</div>
+                          {isCritical && <span style={{ fontSize: 9, color: 'var(--danger)', fontWeight: 700 }}> Crítico</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {activeTab === 'grades' ? (
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {BIMESTRES.map(b => {
+                          const nota = getStudentGrade(st.id, 'Geral', b)
+                          return (
+                            <button key={b} onClick={() => setEditingCell({ studentId: st.id, subject: 'Geral', bimestre: b })} style={{
+                              flex: 1, height: 48, borderRadius: 8, border: 'none',
+                              background: nota !== null ? (nota >= 7 ? '#22c55e15' : nota >= 5 ? '#f59e0b15' : '#ef444415') : 'var(--bg-secondary)',
+                              color: nota !== null ? (nota >= 7 ? '#22c55e' : nota >= 5 ? '#f59e0b' : '#ef4444') : 'var(--text-muted)',
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer',
+                            }}>
+                              <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>{b}º</div>
+                              <div style={{ fontSize: 18, fontWeight: 700 }}>{nota !== null ? nota : '-'}</div>
+                            </button>
+                          )
+                        })}
+                        <div style={{
+                          flex: 1, height: 48, borderRadius: 8, background: 'var(--bg-secondary)',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>Méd</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: avg !== null ? (avg >= 7 ? 'var(--success)' : avg >= 5 ? 'var(--warning)' : 'var(--danger)') : 'var(--text-muted)' }}>
+                            {avg !== null ? avg : '-'}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {OBSERVATION_CATEGORIES.map(cat => {
+                          const count = getObsCount(st.id, cat.key)
+                          return (
+                            <button key={cat.key} onClick={() => activeTab === 'observations' && openObsMenu(st.id, new MouseEvent('click') as any)} style={{
+                              flex: 1, height: 48, borderRadius: 8, border: 'none',
+                              background: count > 0 ? `${cat.color}15` : 'var(--bg-secondary)',
+                              color: count > 0 ? cat.color : 'var(--text-muted)',
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer',
+                            }}>
+                              <div style={{ fontSize: 18, fontWeight: 700 }}>{count > 0 ? count : '-'}</div>
+                              <div style={{ fontSize: 8, color: cat.color }}>{cat.label.slice(0, 3)}</div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Desktop Table View (>768px) */}
+          <div className="desktop-only" style={{ display: 'block' }}>
+            <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 600 }}>
               <thead>
                 <tr style={{ background: 'var(--bg-secondary)' }}>
@@ -504,6 +586,7 @@ export default function DiarioPage() {
                 })}
               </tbody>
             </table>
+          </div>
           </div>
 
           {lowAvgStudents.length > 0 && activeTab === 'grades' && (

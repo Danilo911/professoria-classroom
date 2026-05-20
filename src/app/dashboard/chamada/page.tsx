@@ -437,15 +437,9 @@ export default function ChamadaPage() {
                         const { day, date: dayNum } = formatDayHeader(date)
                         return (
                           <div key={date} style={{ flex: 1, textAlign: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginBottom: 4 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, marginBottom: 4 }}>
                               <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>{day.slice(0, 1)} {dayNum}</span>
-                              <button onClick={() => toggleHoliday(date)} style={{
-                                width: 18, height: 18, border: 'none', background: 'none', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-                                opacity: isHoliday ? 1 : 0.3,
-                              }} title={isHoliday ? 'Remover feriado' : 'Marcar feriado'}>
-                                <span style={{ fontSize: 14 }}>🏖</span>
-                              </button>
+                              {isHoliday && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', flexShrink: 0 }} />}
                             </div>
                             <button
                               onClick={() => !isFuture && !isTransfered && !isHoliday && cycleStatus(st.id, date)}
@@ -459,7 +453,7 @@ export default function ChamadaPage() {
                                 opacity: isFuture ? 0.4 : 1,
                               }}
                             >
-                              {isHoliday ? '' : isTransfered ? <Minus size={18} /> : status === 'present' ? <Check size={18} /> : status === 'absent' ? <X size={18} /> : <FileText size={18} />}
+                              {isTransfered ? <Minus size={18} /> : status === 'present' ? <Check size={18} /> : status === 'absent' ? <X size={18} /> : <FileText size={18} />}
                             </button>
                           </div>
                         )
