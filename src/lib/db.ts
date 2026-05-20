@@ -374,6 +374,24 @@ export async function getSkills(grade?: string, source?: string): Promise<Curric
   return data || []
 }
 
+export async function getCurriculumSkills(grade?: string, source?: string): Promise<CurriculumSkill[]> {
+  const supabase = createClient()
+  let query = supabase.from('curriculum_skills').select('*').order('code')
+  if (grade) {
+    // Match grade containing the class grade (e.g. "1º Ano" matches "1º Ano/2º Ano/3º Ano/4º Ano")
+    query = query.ilike('grade', `%${grade}%`)
+  }
+  if (source) query = query.eq('source', source)
+  const { data } = await query
+  return data || []
+}
+
+export async function getClass(id: string): Promise<Class | null> {
+  const supabase = createClient()
+  const { data } = await supabase.from('classes').select('*').eq('id', id).single()
+  return data
+}
+
 export async function insertSkills(skills: Omit<CurriculumSkill, 'id' | 'created_at'>[]) {
   const supabase = createClient()
   const { error } = await supabase.from('curriculum_skills').upsert(
@@ -384,6 +402,16 @@ export async function insertSkills(skills: Omit<CurriculumSkill, 'id' | 'created
 }
 
 // ==================== AI REPORTS ====================
+
+export async function getAIReports(filters: { class_id?: string; student_id?: string; type?: string }): Promise<AIReport[]> {
+  const supabase = createClient()
+  let query = supabase.from('ai_reports').select('*').order('created_at', { ascending: false })
+  if (filters.class_id) query = query.eq('class_id', filters.class_id)
+  if (filters.student_id) query = query.eq('student_id', filters.student_id)
+  if (filters.type) query = query.eq('type', filters.type)
+  const { data } = await query
+  return data || []
+}
 
 export async function saveAIReport(input: {
   class_id?: string; student_id?: string; type: string; content: string; prompt_context?: any
@@ -402,6 +430,79 @@ export async function saveAIReport(input: {
     .single()
   if (error) throw error
   return data
+}
+
+// ==================== GIER SUBMISSIONS ====================
+
+export async function getGierSubmissions(filters?: { class_id?: string }): Promise<GierSubmission[]> {
+  const supabase = createClient()
+  const userId = await getUserId()
+  if (!userId) return []
+
+  let query = supabase
+    .from('gier_submissions')
+    .select('*, class:classes(name)')
+    .eq('teacher_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (filters?.class_id) query = query.eq('class_id', filters.class_id)
+  const { data } = await query
+  return (data || []) as GierSubmission[]
+}
+
+export async function saveGierSubmission(input: {
+  class_id: string
+  original_file_url: string
+  file_type: 'image' | 'pdf' | 'docx'
+  ocr_extracted_text?: string
+  ai_interpretation?: {
+    component: string
+    skill_code: string
+    skill_description: string
+    activity_type?: string
+  }
+  gier_description: string
+  status?: 'processing' | 'completed' | 'error' | 'reviewed'
+}): Promise<GierSubmission> {
+  const supabase = createClient()
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
+
+  const { data, error } = await supabase
+    .from('gier_submissions')
+    .insert({
+      ...input,
+      teacher_id: userId,
+      status: input.status || 'completed'
+    })
+    .select('*, class:classes(name)')
+    .single()
+
+  if (error) throw error
+  return data as GierSubmission
+}
+
+export async function updateGierSubmission(id: string, data: Partial<GierSubmission>): Promise<GierSubmission> {
+  const supabase = createClient()
+  const { data: updated, error } = await supabase
+    .from('gier_submissions')
+    .update(data)
+    .eq('id', id)
+    .select('*, class:classes(name)')
+    .single()
+
+  if (error) throw error
+  return updated as GierSubmission
+}
+
+export async function deleteGierSubmission(id: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('gier_submissions')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw error
 }
 
 // ==================== DASHBOARD STATS ====================
@@ -441,7 +542,6 @@ export async function upsertSchool(data: { name: string; city?: string; state?: 
   const userId = await getUserId()
   if (!userId) throw new Error('Não autenticado')
 
-  // Get current teacher to see if they already have a school
   const { data: teacher } = await supabase.from('teachers').select('school_id').eq('id', userId).single()
 
   if (teacher?.school_id) {
@@ -449,7 +549,16 @@ export async function upsertSchool(data: { name: string; city?: string; state?: 
     if (error) throw error
   } else {
     const { data: school, error } = await supabase.from('schools').insert(data).select().single()
-    if (error) throw error
+    if (error) {
+      // Fallback: insert without select, then find by name
+      const { error: insertErr } = await supabase.from('schools').insert(data)
+      if (insertErr) throw insertErr
+      const { data: foundSchool } = await supabase.from('schools').select('id').eq('name', data.name).limit(1).single()
+      if (foundSchool) {
+        await supabase.from('teachers').update({ school_id: foundSchool.id }).eq('id', userId)
+      }
+      return
+    }
     await supabase.from('teachers').update({ school_id: school.id }).eq('id', userId)
   }
 }

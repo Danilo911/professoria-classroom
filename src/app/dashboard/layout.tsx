@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -25,6 +25,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+
+  useEffect(() => {
+    if (sessionStorage.getItem('sessionOnly') === 'true') {
+      const handleBeforeUnload = () => {
+        sessionStorage.setItem('sessionExpired', 'true')
+      }
+      window.addEventListener('beforeunload', handleBeforeUnload)
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (sessionStorage.getItem('sessionExpired') === 'true') {
+      sessionStorage.removeItem('sessionExpired')
+      const supabase = createClient()
+      supabase.auth.signOut().then(() => {
+        router.push('/login')
+        router.refresh()
+      })
+    }
+  }, [])
 
   async function handleLogout() {
     const supabase = createClient()

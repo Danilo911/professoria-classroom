@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTheme } from 'next-themes'
-import { Sun, Moon, Monitor, Check, LogOut } from 'lucide-react'
+import { Sun, Moon, Monitor, Check, LogOut, Eye, EyeOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { getTeacher, updateTeacher, upsertSchool } from '@/lib/db'
 import { useToast } from '@/lib/toast'
@@ -25,6 +25,18 @@ export default function ConfiguracoesPage() {
     school_state: '',
     school_network: 'municipal',
   })
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [showChangeEmail, setShowChangeEmail] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [emailPassword, setEmailPassword] = useState('')
+  const [changingAuth, setChangingAuth] = useState(false)
+  const [showCurrent, setShowCurrent] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [showEmailPwd, setShowEmailPwd] = useState(false)
 
   useEffect(() => {
     getTeacher().then(data => {
@@ -57,6 +69,18 @@ export default function ConfiguracoesPage() {
       }
       setSaved(true)
       toast('Configurações salvas!', 'success')
+      const updated = await getTeacher()
+      if (updated) {
+        setTeacher(updated)
+        setForm({
+          full_name: updated.full_name || '',
+          phone: updated.phone || '',
+          school_name: updated.school?.name || '',
+          school_city: updated.school?.city || 'Guarulhos',
+          school_state: updated.school?.state || 'SP',
+          school_network: updated.school?.network || 'municipal',
+        })
+      }
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao salvar', 'error')
@@ -70,6 +94,87 @@ export default function ConfiguracoesPage() {
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()
+  }
+
+  async function handleChangePassword() {
+    if (!currentPassword) {
+      toast('Informe a senha atual', 'error')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast('As senhas não coincidem', 'error')
+      return
+    }
+    if (newPassword.length < 6) {
+      toast('A senha deve ter pelo menos 6 caracteres', 'error')
+      return
+    }
+    setChangingAuth(true)
+    try {
+      const supabase = createClient()
+      // Verifica a senha atual tentando fazer login
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: teacher?.email || '',
+        password: currentPassword,
+      })
+      if (verifyError) {
+        toast('Senha atual incorreta', 'error')
+        return
+      }
+      // Senha correta, atualiza para a nova
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      toast('Senha alterada com sucesso!', 'success')
+      setShowChangePassword(false)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao alterar senha', 'error')
+    } finally {
+      setChangingAuth(false)
+    }
+  }
+
+  async function handleChangeEmail() {
+    if (!emailPassword) {
+      toast('Informe sua senha atual para confirmar', 'error')
+      return
+    }
+    if (!newEmail || !newEmail.includes('@')) {
+      toast('Informe um email válido', 'error')
+      return
+    }
+    setChangingAuth(true)
+    try {
+      const supabase = createClient()
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: teacher?.email || '',
+        password: emailPassword,
+      })
+      if (verifyError) {
+        toast('Senha incorreta', 'error')
+        return
+      }
+      const { error } = await supabase.auth.updateUser({ email: newEmail })
+      if (error) throw error
+      toast('Email de confirmação enviado! Verifique sua nova caixa de entrada.', 'success')
+      setShowChangeEmail(false)
+      setNewEmail('')
+      setEmailPassword('')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao alterar email', 'error')
+    } finally {
+      setChangingAuth(false)
+    }
+  }
+
+  function formatPhone(value: string): string {
+    const digits = value.replace(/\D/g, '').slice(0, 11)
+    if (digits.length === 0) return ''
+    if (digits.length <= 2) return `(${digits}`
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
   }
 
   const themeOptions = [
@@ -102,8 +207,8 @@ export default function ConfiguracoesPage() {
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Telefone</label>
-              <input className="input" placeholder="(11) 99999-9999" value={form.phone}
-                onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))} />
+              <input className="input" placeholder="(11) 99999-9999" value={form.phone} maxLength={15}
+                onChange={e => setForm(prev => ({ ...prev, phone: formatPhone(e.target.value) }))} />
             </div>
           </div>
         </div>
@@ -163,6 +268,107 @@ export default function ConfiguracoesPage() {
                 </button>
               )
             })}
+          </div>
+        </div>
+
+        {/* Segurança */}
+        <div className="card" style={{ padding: 24 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>Segurança</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {!showChangePassword ? (
+              <button onClick={() => setShowChangePassword(true)} className="btn btn-secondary" style={{ justifyContent: 'flex-start' }}>
+                Alterar senha
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, background: 'var(--bg-secondary)', borderRadius: 8 }}>
+                <input type="text" style={{ display: 'none' }} tabIndex={-1} autoComplete="username" />
+                <input type="password" style={{ display: 'none' }} tabIndex={-1} autoComplete="new-password" />
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Senha atual</label>
+                  <div style={{ position: 'relative' }}>
+                    <input className="input" type={showCurrent ? 'text' : 'password'} placeholder="Digite sua senha atual" value={currentPassword}
+                      autoComplete="new-password" name="current-pwd-field"
+                      onChange={e => setCurrentPassword(e.target.value)}
+                      style={{ paddingRight: 40 }} />
+                    <button type="button" onClick={() => setShowCurrent(!showCurrent)}
+                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                      {showCurrent ? <EyeOff size={18} style={{ color: 'var(--text-muted)' }} /> : <Eye size={18} style={{ color: 'var(--text-muted)' }} />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Nova senha</label>
+                  <div style={{ position: 'relative' }}>
+                    <input className="input" type={showNew ? 'text' : 'password'} placeholder="Mínimo 6 caracteres" value={newPassword}
+                      autoComplete="new-password" name="new-pwd-field"
+                      onChange={e => setNewPassword(e.target.value)}
+                      style={{ paddingRight: 40 }} />
+                    <button type="button" onClick={() => setShowNew(!showNew)}
+                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                      {showNew ? <EyeOff size={18} style={{ color: 'var(--text-muted)' }} /> : <Eye size={18} style={{ color: 'var(--text-muted)' }} />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Confirmar nova senha</label>
+                  <div style={{ position: 'relative' }}>
+                    <input className="input" type={showConfirm ? 'text' : 'password'} placeholder="Repita a nova senha" value={confirmPassword}
+                      autoComplete="new-password" name="confirm-pwd-field"
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      style={{ paddingRight: 40 }} />
+                    <button type="button" onClick={() => setShowConfirm(!showConfirm)}
+                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                      {showConfirm ? <EyeOff size={18} style={{ color: 'var(--text-muted)' }} /> : <Eye size={18} style={{ color: 'var(--text-muted)' }} />}
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={handleChangePassword} className="btn btn-primary btn-sm" disabled={changingAuth}>
+                    {changingAuth ? 'Verificando...' : 'Salvar'}
+                  </button>
+                  <button onClick={() => { setShowChangePassword(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword('') }} className="btn btn-ghost btn-sm">Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            {!showChangeEmail ? (
+              <button onClick={() => setShowChangeEmail(true)} className="btn btn-secondary" style={{ justifyContent: 'flex-start' }}>
+                Alterar email
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, background: 'var(--bg-secondary)', borderRadius: 8 }}>
+                <input type="text" style={{ display: 'none' }} tabIndex={-1} autoComplete="username" />
+                <input type="password" style={{ display: 'none' }} tabIndex={-1} autoComplete="new-password" />
+                <div style={{ fontSize: 12, color: 'var(--warning)', padding: '6px 10px', background: 'var(--warning-light)', borderRadius: 6 }}>
+                  ⚠️ Um email de confirmação será enviado para o novo endereço. O email atual só será alterado após a confirmação.
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Senha atual (para confirmar)</label>
+                  <div style={{ position: 'relative' }}>
+                    <input className="input" type={showEmailPwd ? 'text' : 'password'} placeholder="Digite sua senha" value={emailPassword}
+                      autoComplete="new-password" name="email-pwd-field"
+                      onChange={e => setEmailPassword(e.target.value)}
+                      style={{ paddingRight: 40 }} />
+                    <button type="button" onClick={() => setShowEmailPwd(!showEmailPwd)}
+                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                      {showEmailPwd ? <EyeOff size={18} style={{ color: 'var(--text-muted)' }} /> : <Eye size={18} style={{ color: 'var(--text-muted)' }} />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Novo email</label>
+                  <input className="input" type="email" placeholder="novo@email.com" value={newEmail}
+                    autoComplete="off" name="new-email-field"
+                    onChange={e => setNewEmail(e.target.value)} />
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={handleChangeEmail} className="btn btn-primary btn-sm" disabled={changingAuth}>
+                    {changingAuth ? 'Enviando...' : 'Enviar confirmação'}
+                  </button>
+                  <button onClick={() => { setShowChangeEmail(false); setNewEmail(''); setEmailPassword('') }} className="btn btn-ghost btn-sm">Cancelar</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

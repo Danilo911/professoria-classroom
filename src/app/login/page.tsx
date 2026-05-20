@@ -4,10 +4,13 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Eye, EyeOff, Shield } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [keepLoggedIn, setKeepLoggedIn] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
@@ -27,6 +30,12 @@ export default function LoginPage() {
       if (authError) {
         setError('Email ou senha incorretos. Tente novamente.')
         return
+      }
+
+      if (!keepLoggedIn) {
+        sessionStorage.setItem('sessionOnly', 'true')
+      } else {
+        sessionStorage.removeItem('sessionOnly')
       }
 
       router.push('/dashboard')
@@ -77,16 +86,47 @@ export default function LoginPage() {
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>
               Senha
             </label>
-            <input
-              id="login-password"
-              type="password"
-              className="input"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="login-password"
+                type={showPassword ? 'text' : 'password'}
+                className="input"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{ paddingRight: 44 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex',
+                }}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} style={{ color: 'var(--text-muted)' }} /> : <Eye size={18} style={{ color: 'var(--text-muted)' }} />}
+              </button>
+            </div>
           </div>
+
+          {/* Manter login */}
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', padding: '10px 12px', background: 'var(--bg-secondary)', borderRadius: 8 }}>
+            <input
+              type="checkbox"
+              checked={keepLoggedIn}
+              onChange={(e) => setKeepLoggedIn(e.target.checked)}
+              style={{ marginTop: 2, accentColor: 'var(--primary)', width: 16, height: 16, flexShrink: 0 }}
+            />
+            <div style={{ fontSize: 13 }}>
+              <span style={{ fontWeight: 500 }}>Manter login</span>
+              <span style={{ color: 'var(--text-secondary)', display: 'block', marginTop: 2, fontSize: 12 }}>
+                <Shield size={12} style={{ display: 'inline', marginRight: 3, verticalAlign: 'middle' }} />
+                Use apenas no seu computador pessoal. Se não marcar, será deslogado ao fechar o navegador.
+              </span>
+            </div>
+          </label>
 
           {error && (
             <div style={{

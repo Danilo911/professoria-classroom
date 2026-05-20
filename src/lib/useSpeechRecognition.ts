@@ -14,17 +14,38 @@ interface UseSpeechRecognitionReturn {
 let whisperPipeline: any = null
 let whisperLoading: Promise<any> | null = null
 
+const isBraveBrowser = (): boolean => {
+  if (typeof window === 'undefined') return false
+  const nav = navigator as any
+  return !!(
+    nav.brave?.isBrave ||
+    nav.userAgentData?.brands?.some((b: any) => b.brand === 'Brave') ||
+    /Brave/.test(navigator.userAgent || '')
+  )
+}
+
 async function loadWhisper(): Promise<any> {
   if (whisperPipeline) return whisperPipeline
   if (whisperLoading) return whisperLoading
 
   whisperLoading = (async () => {
-    const { pipeline, env } = await import('@xenova/transformers')
-    env.allowLocalModels = false
-    env.useBrowserCache = true
-    const pipe = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny')
-    whisperPipeline = pipe
-    return pipe
+    try {
+      const { pipeline, env } = await import('@xenova/transformers')
+      env.allowLocalModels = false
+      
+      let useCache = false
+      try {
+        useCache = typeof window !== 'undefined' && 'caches' in window && window.caches !== undefined
+      } catch {}
+      env.useBrowserCache = useCache
+
+      const pipe = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny')
+      whisperPipeline = pipe
+      return pipe
+    } catch (err) {
+      whisperLoading = null // Permite tentar carregar novamente
+      throw err
+    }
   })()
 
   return whisperLoading
@@ -45,16 +66,22 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
       recognitionRef.current = null
     }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop()
+      try { mediaRecorderRef.current.stop() } catch {}
     }
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop())
+      try { streamRef.current.getTracks().forEach(t => t.stop()) } catch {}
       streamRef.current = null
     }
     setStatus('idle')
   }, [])
 
   const startWebSpeech = useCallback(() => {
+    // Brave bloqueia a API nativa do Google Speech, gerando erros do tipo 'Cannot convert undefined or null to object'.
+    // Portanto, pulamos para o Whisper diretamente em navegadores Brave.
+    if (isBraveBrowser()) {
+      return false
+    }
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) return false
 
@@ -66,24 +93,33 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
       recognition.maxAlternatives = 1
 
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript
-        onResult(transcript)
+        try {
+          const transcript = event.results?.[0]?.[0]?.transcript
+          if (transcript) {
+            onResult(transcript)
+          } else {
+            setError('Nenhum resultado de áudio detectado')
+          }
+        } catch {
+          setError('Erro ao processar áudio nativo')
+        }
         setStatus('idle')
       }
 
       recognition.onerror = (event: any) => {
-        if (event.error === 'not-allowed') {
+        const errType = event?.error
+        if (errType === 'not-allowed') {
           setError('Microfone bloqueado')
           onError?.('Microfone bloqueado')
           setStatus('error')
-        } else if (event.error === 'no-speech') {
+        } else if (errType === 'no-speech') {
           setError('Nenhuma fala detectada')
           setStatus('idle')
-        } else if (event.error === 'network') {
+        } else if (errType === 'network') {
           useWhisperRef.current = true
           recognitionRef.current = null
           startWhisper()
-        } else if (event.error !== 'aborted') {
+        } else if (errType !== 'aborted') {
           setError('Erro no reconhecimento')
           onError?.('Erro no reconhecimento')
           setStatus('error')
@@ -109,9 +145,22 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
     setError(null)
     try {
       const pipe = await loadWhisper()
+
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Dispositivos de mídia (microfone) não suportados neste navegador.')
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      
+      let mediaRecorder: MediaRecorder
+      try {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      } catch {
+        // Fallback caso mimeType 'audio/webm' não seja suportado
+        mediaRecorder = new MediaRecorder(stream)
+      }
+      
       const chunks: Blob[] = []
 
       mediaRecorder.ondataavailable = (e) => {
@@ -120,7 +169,8 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
 
       mediaRecorder.onstop = async () => {
         try {
-          const blob = new Blob(chunks, { type: 'audio/webm' })
+          const mime = mediaRecorder.mimeType || 'audio/webm'
+          const blob = new Blob(chunks, { type: mime })
           const arrayBuffer = await blob.arrayBuffer()
           const float32Data = await decodeAudio(arrayBuffer)
 
@@ -135,7 +185,13 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
             setError('Não foi possível transcrever o áudio')
           }
         } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Erro ao transcrever áudio'
+          const rawMsg = err instanceof Error ? err.message : String(err)
+          let msg = 'Erro ao transcrever áudio'
+          if (isBraveBrowser() || rawMsg.includes('undefined') || rawMsg.includes('null') || rawMsg.includes('convert')) {
+            msg = 'O reconhecimento de voz não é suportado no Brave devido a restrições de privacidade nos Shields. Use o Google Chrome ou desative os Brave Shields.'
+          } else {
+            msg = rawMsg
+          }
           setError(msg)
           onError?.(msg)
         }
@@ -149,7 +205,13 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
       mediaRecorder.start()
       setStatus('listening')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao carregar modelo de voz'
+      const rawMsg = err instanceof Error ? err.message : String(err)
+      let msg = 'Erro ao carregar modelo de voz'
+      if (isBraveBrowser() || rawMsg.includes('undefined') || rawMsg.includes('null') || rawMsg.includes('convert')) {
+        msg = 'O reconhecimento de voz local não é suportado no Brave com as proteções ativas. Para usar, desative os Shields do Brave ou use o Chrome.'
+      } else {
+        msg = rawMsg
+      }
       setError(msg)
       onError?.(msg)
       setStatus('error')
@@ -183,10 +245,21 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
 }
 
 async function decodeAudio(arrayBuffer: ArrayBuffer): Promise<Float32Array> {
-  const audioContext = new AudioContext({ sampleRate: 16000 })
+  const AudioContextClass = typeof window !== 'undefined' ? (window.AudioContext || (window as any).webkitAudioContext) : null
+  if (!AudioContextClass) {
+    throw new Error('Web Audio API não suportada neste navegador.')
+  }
+
+  const audioContext = new AudioContextClass({ sampleRate: 16000 })
   try {
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+    if (!audioBuffer) {
+      throw new Error('Falha ao decodificar áudio.')
+    }
     const channelData = audioBuffer.getChannelData(0)
+    if (!channelData) {
+      throw new Error('Dados do canal de áudio não disponíveis.')
+    }
     return new Float32Array(channelData)
   } finally {
     await audioContext.close()

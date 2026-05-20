@@ -22,17 +22,44 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: GeminiReportRequest = await request.json()
+    const body: GeminiReportRequest & { classId?: string } = await request.json()
 
     if (!body.type) {
       return NextResponse.json({ error: 'Tipo de relatório é obrigatório' }, { status: 400 })
     }
 
-    const result = await generateReport(body)
+    // Fetch QSN skills if classId is provided
+    let qsnSkills: GeminiReportRequest['qsnSkills'] = undefined
+    if (body.classId) {
+      const { data: classData } = await supabase
+        .from('classes')
+        .select('grade')
+        .eq('id', body.classId)
+        .single()
 
-    return NextResponse.json({ content: result })
+      if (classData?.grade) {
+        const { data: skills } = await supabase
+          .from('curriculum_skills')
+          .select('code, description, component, axis, grade')
+          .ilike('grade', `%${classData.grade}%`)
+          .eq('source', 'qsn')
+          .limit(30)
+
+        if (skills && skills.length > 0) {
+          // Filtra habilidades de Libras/Língua de Sinais (inclusão — só cita se pedido nas observações)
+          qsnSkills = skills.filter(s => {
+            const text = `${s.description} ${s.axis || ''}`.toLowerCase()
+            return !text.includes('libras') && !text.includes('língua de sinais')
+          })
+        }
+      }
+    }
+
+    const { content, provider } = await generateReport({ ...body, qsnSkills })
+
+    return NextResponse.json({ content, provider })
   } catch (error) {
-    console.error('Gemini report error:', error)
+    console.error('AI report error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erro ao gerar relatório' },
       { status: 500 }
