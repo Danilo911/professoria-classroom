@@ -309,6 +309,9 @@ export default function ChamadaPage() {
   const isFutureMonth = currentMonth.year > new Date().getFullYear() ||
     (currentMonth.year === new Date().getFullYear() && currentMonth.month > new Date().getMonth())
 
+  // Last 5 working days (for mobile card view)
+  const last5Days = dates.filter(d => d <= today).slice(-5)
+
   if (loading) return <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>Carregando...</div>
 
   const alerts = students
@@ -381,7 +384,106 @@ export default function ChamadaPage() {
         <div className="card" style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum aluno matriculado nesta turma.</div>
       ) : (
         <>
-          <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
+          {/* Mobile Card View (≤768px) */}
+          <div className="mobile-only" style={{ display: 'none' }}>
+            {/* 5-day header bar */}
+            <div className="card" style={{ padding: 12, marginBottom: 12, display: 'flex', gap: 6, overflowX: 'auto' }}>
+              {last5Days.map(date => {
+                const { day, date: dayNum } = formatDayHeader(date)
+                const isToday = date === today
+                const isHoliday = holidays.has(date)
+                return (
+                  <div key={date} onClick={() => !isHoliday && toggleHoliday(date)} style={{
+                    flex: '1 0 60px', textAlign: 'center', cursor: isHoliday ? 'default' : 'pointer',
+                    padding: '6px 4px', borderRadius: 8,
+                    background: isHoliday ? 'rgba(59, 130, 246, 0.15)' : isToday ? 'var(--primary-light)' : 'transparent',
+                    border: `1px solid ${isHoliday ? '#3b82f6' : isToday ? 'var(--primary)' : 'var(--border)'}`,
+                  }} title={isHoliday ? 'Remover feriado' : 'Marcar feriado'}>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{day}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>{dayNum}</div>
+                    {isHoliday && <div style={{ fontSize: 10 }}>🏖</div>}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Student cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {students.map((st, idx) => {
+                const stats = getStudentStats(st.id)
+                const tDate = transferredDate[st.id]
+                return (
+                  <div key={st.id} className="card" style={{ padding: 12 }}>
+                    {/* Student header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                          background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'white', fontWeight: 700, fontSize: 12,
+                        }}>{idx + 1}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            color: tDate ? 'var(--text-muted)' : undefined,
+                            textDecoration: tDate ? 'line-through' : undefined,
+                          }}>{st.full_name}</div>
+                          {getBuscaAtivaAlert(st.id) && (
+                            <span style={{ fontSize: 9, color: 'var(--danger)', fontWeight: 700 }}>⚠ {getBuscaAtivaAlert(st.id)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: stats.effectiveAbsent > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>{stats.effectiveAbsent}</div>
+                          <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>Faltas</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: stats.pct >= 75 ? 'var(--success)' : stats.pct >= 50 ? 'var(--warning)' : 'var(--danger)' }}>{stats.total === 0 ? '-' : `${stats.pct}%`}</div>
+                          <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>Freq.</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 5 day cells */}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {last5Days.map(date => {
+                        const isTransfered = !!(tDate && date >= tDate)
+                        const isHoliday = holidays.has(date)
+                        const status = isTransfered || isHoliday ? null : (attendance[st.id]?.[date] || 'present')
+                        const isFuture = date > today
+                        const { day, date: dayNum } = formatDayHeader(date)
+                        return (
+                          <div key={date} style={{ flex: 1, textAlign: 'center' }}>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>{day} {dayNum}</div>
+                            <button
+                              onClick={() => !isFuture && !isTransfered && !isHoliday && cycleStatus(st.id, date)}
+                              disabled={isTransfered || isHoliday}
+                              style={{
+                                width: '100%', height: 40, borderRadius: 8, border: 'none',
+                                background: isHoliday ? 'rgba(59, 130, 246, 0.15)' : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
+                                color: isHoliday ? '#3b82f6' : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: isFuture || isTransfered || isHoliday ? 'default' : 'pointer',
+                                opacity: isFuture ? 0.4 : 1,
+                              }}
+                            >
+                              {isHoliday ? '🏖' : isTransfered ? <Minus size={18} /> : status === 'present' ? <Check size={18} /> : status === 'absent' ? <X size={18} /> : <FileText size={18} />}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Desktop Table View (>768px) */}
+          <div className="desktop-only" style={{ display: 'block' }}>
+            <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 800 }}>
               <thead>
                 <tr style={{ background: 'var(--bg-secondary)' }}>
@@ -481,6 +583,7 @@ export default function ChamadaPage() {
                 })}
               </tbody>
             </table>
+          </div>
           </div>
 
           {alerts.length > 0 && (

@@ -546,19 +546,18 @@ img, table, pre, code, .card, .stat-card {
   .mobile-hidden {
     display: none !important;
   }
-
-  .gier-result-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 8px !important;
-  }
 }
 
 /* ---- Tablet / Small screens (≤ 768px) ---- */
 @media (max-width: 768px) {
+  .mobile-only {
+    display: block !important;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
   .sidebar.open {
     left: 0;
   }
