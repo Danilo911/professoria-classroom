@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, Sparkles, Copy, Check, Pencil, Save, Mic, Loader2, ExternalLink } from 'lucide-react'
+import { Upload, Sparkles, Copy, Check, Pencil, Save, ExternalLink } from 'lucide-react'
 import { useToast } from '@/lib/toast'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
+import { MicButton } from '@/components/ui/MicButton'
+import { fileToBase64 } from '@/lib/file'
 
 export default function GierPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -105,15 +107,6 @@ export default function GierPage() {
     }
   }
 
-  function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-  }
-
   const getIcon = () => null
 
   return (
@@ -156,18 +149,13 @@ export default function GierPage() {
                 onChange={e => setDescricao(e.target.value)}
                 style={{ fontSize: 14, padding: 12, paddingRight: 40, resize: 'vertical', fontFamily: 'inherit' }}
               />
-              <button type="button" onClick={descricaoSpeech.toggleListening} disabled={descricaoSpeech.status === 'loading'}
-                style={{
-                  position: 'absolute', right: 6, bottom: 6, width: 30, height: 30,
-                  borderRadius: 6, border: 'none', cursor: descricaoSpeech.status === 'loading' ? 'wait' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: descricaoSpeech.status === 'listening' ? 'var(--danger)' : descricaoSpeech.status === 'loading' ? 'var(--warning)' : 'transparent',
-                  color: descricaoSpeech.status === 'listening' ? 'white' : descricaoSpeech.status === 'loading' ? 'white' : 'var(--text-muted)',
-                  transition: 'all 0.15s',
-                }}
-                title={descricaoSpeech.status === 'loading' ? 'Carregando...' : descricaoSpeech.status === 'listening' ? 'Parar' : 'Gravar por voz'}>
-                {descricaoSpeech.status === 'loading' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mic size={14} />}
-              </button>
+              <MicButton
+                status={descricaoSpeech.status}
+                onToggle={descricaoSpeech.toggleListening}
+                size={30}
+                titles={{ loading: 'Carregando...', listening: 'Parar', idle: 'Gravar por voz' }}
+                style={{ position: 'absolute', right: 6, bottom: 6 }}
+              />
             </div>
           </div>
 

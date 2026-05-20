@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, X, Check, Calendar, Mic, Loader2, FileText, Download, Edit2 } from 'lucide-react'
+import { Plus, X, Check, Calendar, FileText, Download, Edit2 } from 'lucide-react'
 import { getClasses, getClassStudents, getDiaryEntries, createDiaryEntry, updateDiaryEntry, getDiaryEntryByDate, getStudentObservations, createStudentObservation, getGrades, upsertGrade, getClassSummary } from '@/lib/db'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { useToast } from '@/lib/toast'
+import { MicButton } from '@/components/ui/MicButton'
+import { getTodayISO, formatDateBR } from '@/lib/dates'
 import type { Class, Student, DiaryEntry, StudentObservation, Grade } from '@/types'
 
 type Tab = 'grades' | 'observations' | 'records'
@@ -33,19 +35,6 @@ const DIARY_TYPES = [
   { key: 'achievement', label: 'Conquista', color: '#F59E0B' },
 ]
 
-function getTodayBR(): string {
-  const now = new Date()
-  const brasiliaStr = now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })
-  const [datePart] = brasiliaStr.split(',')
-  const [month, day, year] = datePart.split('/').map(Number)
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-}
-
-function formatDateBR(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('pt-BR')
-}
-
 export default function DiarioPage() {
   const [classes, setClasses] = useState<Class[]>([])
   const [selectedClass, setSelectedClass] = useState('')
@@ -63,7 +52,7 @@ export default function DiarioPage() {
   const [obsMenu, setObsMenu] = useState<{ studentId: string; x: number; y: number; view: 'menu' | 'form' | 'history' } | null>(null)
   const [obsForm, setObsForm] = useState({ category: 'general', severity: 'info', content: '' })
   const { toast } = useToast()
-  const today = getTodayBR()
+  const today = getTodayISO()
   const menuRef = useRef<HTMLDivElement>(null)
   const [entryForm, setEntryForm] = useState({ type: 'general', title: '', content: '', date: today })
   const [showNewEntry, setShowNewEntry] = useState(false)
@@ -569,18 +558,11 @@ export default function DiarioPage() {
                 <textarea className="input" rows={3} placeholder="Descreva o registro ou use o microfone..." value={obsForm.content} required
                   onChange={e => setObsForm(prev => ({ ...prev, content: e.target.value }))}
                   style={{ fontSize: 12, padding: '4px 8px', paddingRight: 36 }} />
-                <button type="button" onClick={obsSpeech.toggleListening} disabled={obsSpeech.status === 'loading'}
-                  style={{
-                    position: 'absolute', right: 4, bottom: 4, width: 28, height: 28,
-                    borderRadius: 6, border: 'none', cursor: obsSpeech.status === 'loading' ? 'wait' : 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: obsSpeech.status === 'listening' ? 'var(--danger)' : obsSpeech.status === 'loading' ? 'var(--warning)' : 'transparent',
-                    color: obsSpeech.status === 'listening' ? 'white' : obsSpeech.status === 'loading' ? 'white' : 'var(--text-muted)',
-                    transition: 'all 0.15s',
-                  }}
-                  title={obsSpeech.status === 'loading' ? 'Carregando modelo...' : obsSpeech.status === 'listening' ? 'Parar gravação' : 'Gravar por voz'}>
-                  {obsSpeech.status === 'loading' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mic size={14} />}
-                </button>
+                <MicButton
+                  status={obsSpeech.status}
+                  onToggle={obsSpeech.toggleListening}
+                  style={{ position: 'absolute', right: 4, bottom: 4 }}
+                />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" className="btn btn-sm btn-secondary" onClick={() => setObsMenu(null)} style={{ flex: 1 }}>Cancelar</button>
@@ -695,18 +677,11 @@ function RecordsTab({
               <textarea className="input" rows={3} placeholder="Descreva as atividades ou use o microfone..." value={entryForm.content} required
                 onChange={e => onFormChange({ ...entryForm, content: e.target.value })}
                 style={{ paddingRight: 36 }} />
-              <button type="button" onClick={speech.toggleListening} disabled={speech.status === 'loading'}
-                style={{
-                  position: 'absolute', right: 12, bottom: 12, width: 28, height: 28,
-                  borderRadius: 6, border: 'none', cursor: speech.status === 'loading' ? 'wait' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: speech.status === 'listening' ? 'var(--danger)' : speech.status === 'loading' ? 'var(--warning)' : 'transparent',
-                  color: speech.status === 'listening' ? 'white' : speech.status === 'loading' ? 'white' : 'var(--text-muted)',
-                  transition: 'all 0.15s',
-                }}
-                title={speech.status === 'loading' ? 'Carregando modelo...' : speech.status === 'listening' ? 'Parar gravação' : 'Gravar por voz'}>
-                {speech.status === 'loading' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mic size={14} />}
-              </button>
+              <MicButton
+                status={speech.status}
+                onToggle={speech.toggleListening}
+                style={{ position: 'absolute', right: 12, bottom: 12 }}
+              />
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button type="submit" className="btn btn-primary" disabled={saving || !entryForm.content.trim()}>
@@ -745,18 +720,11 @@ function RecordsTab({
               <textarea className="input" rows={3} placeholder="Descreva o registro ou use o microfone..." value={entryForm.content} required
                 onChange={e => onFormChange({ ...entryForm, content: e.target.value })}
                 style={{ paddingRight: 36 }} />
-              <button type="button" onClick={speech.toggleListening} disabled={speech.status === 'loading'}
-                style={{
-                  position: 'absolute', right: 12, bottom: 12, width: 28, height: 28,
-                  borderRadius: 6, border: 'none', cursor: speech.status === 'loading' ? 'wait' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: speech.status === 'listening' ? 'var(--danger)' : speech.status === 'loading' ? 'var(--warning)' : 'transparent',
-                  color: speech.status === 'listening' ? 'white' : speech.status === 'loading' ? 'white' : 'var(--text-muted)',
-                  transition: 'all 0.15s',
-                }}
-                title={speech.status === 'loading' ? 'Carregando modelo...' : speech.status === 'listening' ? 'Parar gravação' : 'Gravar por voz'}>
-                {speech.status === 'loading' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mic size={14} />}
-              </button>
+              <MicButton
+                status={speech.status}
+                onToggle={speech.toggleListening}
+                style={{ position: 'absolute', right: 12, bottom: 12 }}
+              />
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button type="submit" className="btn btn-primary" disabled={saving || !entryForm.content.trim()}>

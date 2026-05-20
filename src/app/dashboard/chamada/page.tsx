@@ -5,17 +5,10 @@ import { ChevronLeft, ChevronRight, Check, X, FileText, Minus, Calendar } from '
 import { getClassStudents, getSessionsByRange, createAttendanceSession, saveAttendanceRecords, completeSession, getClassHolidays, upsertHoliday, deleteHoliday } from '@/lib/db'
 import { getClasses } from '@/lib/db'
 import { useToast } from '@/lib/toast'
+import { getTodayISO, formatDateBR } from '@/lib/dates'
 import type { Student, Class, AttendanceSession } from '@/types'
 
 type Status = 'present' | 'absent' | 'justified'
-
-function getTodayBrasilia(): string {
-  const now = new Date()
-  const brasiliaStr = now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })
-  const [datePart] = brasiliaStr.split(',')
-  const [month, day, year] = datePart.split('/').map(Number)
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-}
 
 function getMonthRange(year: number, month: number): { start: string; end: string } {
   const start = new Date(year, month, 1)
@@ -33,11 +26,6 @@ function formatDayHeader(date: string): { day: string; date: string } {
   const day = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')
   const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit' })
   return { day, date: dateStr }
-}
-
-function formatDateBR(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('pt-BR')
 }
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -68,7 +56,7 @@ export default function ChamadaPage() {
   const menuRef = useRef<HTMLDivElement>(null)
   const monthPickerRef = useRef<HTMLDivElement>(null)
 
-  const today = getTodayBrasilia()
+  const today = getTodayISO()
 
   useEffect(() => {
     getClasses().then(data => {

@@ -1,5 +1,9 @@
 import { GoogleGenAI } from '@google/genai'
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct'
+
 export interface GeminiReportRequest {
   type: 'descriptive_report' | 'class_council' | 'parent_meeting' | 'pedagogical_suggestion'
   studentName?: string
@@ -97,7 +101,7 @@ async function generateWithGemini(prompt: string): Promise<string> {
 
   const ai = new GoogleGenAI({ apiKey: key })
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: GEMINI_MODEL,
     contents: prompt,
   })
   return response.text || ''
@@ -119,7 +123,7 @@ async function generateWithGroq(prompt: string): Promise<string> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: GROQ_MODEL,
       messages: [
         { role: 'system', content: systemMsg },
         { role: 'user', content: userMsg },
@@ -212,7 +216,7 @@ async function analisarComGroqGier(request: GeminiGierRequest): Promise<GeminiGi
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: request.imageBase64 && request.mimeType !== 'application/pdf' ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile',
+      model: request.imageBase64 && request.mimeType !== 'application/pdf' ? GROQ_VISION_MODEL : GROQ_MODEL,
       messages,
       temperature: 0.3,
     }),
@@ -293,7 +297,7 @@ export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGie
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: GEMINI_MODEL,
         contents,
       })
 
