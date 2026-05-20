@@ -461,9 +461,8 @@ export default function ChamadaPage() {
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'repeat(5, 1fr)', 
-              gap: 4, 
+              gap: 3, 
               marginBottom: 8,
-              padding: '0 4px'
             }}>
               {mobile5Days.map(date => {
                 const { day, date: dayNum } = formatDayHeader(date)
@@ -477,59 +476,58 @@ export default function ChamadaPage() {
                     onClick={e => !isFuture && openDayMenu(date, e)}
                     style={{ 
                       textAlign: 'center', 
-                      padding: '6px 0',
+                      padding: '5px 0',
                       borderRadius: 6,
                       cursor: isFuture ? 'default' : 'pointer',
                       background: sd ? `${sdInfo?.color || '#3b82f6'}20` : isWeekendDay ? 'rgba(148, 163, 184, 0.1)' : 'transparent',
                       color: sd ? (sdInfo?.color || '#3b82f6') : isWeekendDay ? 'var(--text-muted)' : 'var(--text-secondary)',
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: sd ? 600 : 500,
                       transition: 'background 0.15s',
-                      position: 'relative',
                     }}
                     onMouseEnter={e => { if (!isFuture) (e.currentTarget.style.background = sd ? `${sdInfo?.color || '#3b82f6'}35` : 'rgba(148, 163, 184, 0.2)') }}
                     onMouseLeave={e => { if (!isFuture) (e.currentTarget.style.background = sd ? `${sdInfo?.color || '#3b82f6'}20` : isWeekendDay ? 'rgba(148, 163, 184, 0.1)' : 'transparent') }}
                   >
-                    <div style={{ fontSize: 9, opacity: 0.8 }}>{day.slice(0, 2)}</div>
+                    <div style={{ fontSize: 8, opacity: 0.8 }}>{day.slice(0, 3)}</div>
                     <div style={{ fontWeight: 600 }}>{dayNum}</div>
-                    {sd && <div style={{ fontSize: 7, marginTop: 2, opacity: 0.9 }}>{sdInfo?.label.slice(0, 4)}</div>}
+                    {sd && <div style={{ fontSize: 6, marginTop: 1 }}>{sdInfo?.label.slice(0, 3)}</div>}
                   </div>
                 )
               })}
             </div>
 
             {/* Student cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {students.map((st, idx) => {
                 const stats = getStudentStats(st.id)
                 const tDate = transferredDate[st.id]
                 return (
-                  <div key={st.id} className="card" style={{ padding: 12 }}>
+                  <div key={st.id} className="card" style={{ padding: '10px 8px' }}>
                     {/* Student header */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
                         <div style={{
-                          width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                          width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
                           background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: 'white', fontWeight: 700, fontSize: 12,
+                          color: 'white', fontWeight: 700, fontSize: 10,
                         }}>{idx + 1}</div>
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{
-                            fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                             color: tDate ? 'var(--text-muted)' : undefined,
                             textDecoration: tDate ? 'line-through' : undefined,
                           }}>{st.full_name}</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: stats.effectiveAbsent > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>{stats.effectiveAbsent}</span>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: stats.pct >= 75 ? 'var(--success)' : stats.pct >= 50 ? 'var(--warning)' : 'var(--danger)' }}>{stats.total === 0 ? '-' : `${stats.pct}%`}</span>
+                      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: stats.effectiveAbsent > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>{stats.effectiveAbsent}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: stats.pct >= 75 ? 'var(--success)' : stats.pct >= 50 ? 'var(--warning)' : 'var(--danger)' }}>{stats.total === 0 ? '-' : `${stats.pct}%`}</span>
                       </div>
                     </div>
 
                     {/* 5 day cells with labels */}
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ display: 'flex', gap: 3 }}>
                       {mobile5Days.map(date => {
                         const isTransfered = !!(tDate && date >= tDate)
                         const sd = specialDays[date]
@@ -539,28 +537,29 @@ export default function ChamadaPage() {
                         const isFuture = date > today
                         const { day, date: dayNum } = formatDayHeader(date)
                         return (
-                          <div key={date} style={{ flex: 1, textAlign: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, marginBottom: 4, height: 14 }}>
-                              <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>{day.slice(0, 1)} {dayNum}</span>
-                              {isSpecialDay && <Calendar size={8} style={{ color: sdInfo?.color || '#3b82f6', flexShrink: 0 }} />}
+                          <div key={date} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, marginBottom: 2, height: 12 }}>
+                              <span style={{ fontSize: 8, color: 'var(--text-muted)', fontWeight: 500, lineHeight: 1 }}>{day.slice(0, 3)} {dayNum}</span>
+                              {isSpecialDay && <Calendar size={7} style={{ color: sdInfo?.color || '#3b82f6', flexShrink: 0 }} />}
                             </div>
                             <button
                               onClick={() => !isFuture && !isTransfered && !isSpecialDay && cycleStatus(st.id, date)}
                               disabled={isTransfered || isSpecialDay}
                               style={{
-                                width: '100%', height: 44, borderRadius: 8, border: 'none',
+                                width: '100%', height: 36, borderRadius: 6, border: 'none',
                                 background: isSpecialDay ? `${sdInfo?.color || '#3b82f6'}15` : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
                                 color: isSpecialDay ? (sdInfo?.color || '#3b82f6') : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 cursor: isFuture || isTransfered || isSpecialDay ? 'default' : 'pointer',
                                 opacity: isFuture ? 0.4 : 1,
+                                padding: 0,
                               }}
                             >
-                              {isTransfered ? <Minus size={18} /> : 
-                               isSpecialDay ? <Calendar size={18} /> :
-                               status === 'present' ? <Check size={18} /> : 
-                               status === 'absent' ? <X size={18} /> : 
-                               <FileText size={18} />}
+                              {isTransfered ? <Minus size={14} /> : 
+                               isSpecialDay ? <Calendar size={14} /> :
+                               status === 'present' ? <Check size={14} /> : 
+                               status === 'absent' ? <X size={14} /> : 
+                               <FileText size={14} />}
                             </button>
                           </div>
                         )
