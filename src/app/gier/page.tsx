@@ -44,8 +44,16 @@ export default function GierPublicPage() {
     setUsage(getUsage())
   }, [])
 
+  function cleanSpeech(raw: string): string {
+    let text = raw.trim()
+    if (!text) return text
+    text = text.charAt(0).toUpperCase() + text.slice(1)
+    if (!/[.!?]$/.test(text)) text += '.'
+    return text
+  }
+
   const descricaoSpeech = useSpeechRecognition(
-    (text) => setDescricao(prev => prev ? prev + ' ' + text : text),
+    (text) => setDescricao(prev => prev ? prev + ' ' + cleanSpeech(text) : cleanSpeech(text)),
     (err) => toast(err, 'error'),
   )
 

@@ -14,6 +14,14 @@ type Tab = 'grades' | 'observations' | 'records'
 const BIMESTRES = [1, 2, 3, 4]
 const SUBJECTS = ['Português', 'Matemática', 'Ciências', 'História', 'Geografia', 'Arte', 'Ed. Física']
 
+function cleanSpeech(raw: string): string {
+  let text = raw.trim()
+  if (!text) return text
+  text = text.charAt(0).toUpperCase() + text.slice(1)
+  if (!/[.!?]$/.test(text)) text += '.'
+  return text
+}
+
 const OBSERVATION_CATEGORIES = [
   { key: 'behavior', label: 'Comportamento', color: '#EF4444' },
   { key: 'difficulty', label: 'Dificuldade', color: '#F59E0B' },
@@ -60,12 +68,7 @@ export default function DiarioPage() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
 
   const obsSpeech = useSpeechRecognition(
-    (text) => setObsForm(prev => ({ ...prev, content: prev.content ? prev.content + ' ' + text : text })),
-    (err) => toast(err, 'error')
-  )
-
-  const entrySpeech = useSpeechRecognition(
-    (text) => setEntryForm(prev => ({ ...prev, content: prev.content ? prev.content + ' ' + text : text })),
+    (text) => setObsForm(prev => ({ ...prev, content: prev.content ? prev.content + ' ' + cleanSpeech(text) : cleanSpeech(text) })),
     (err) => toast(err, 'error')
   )
 
@@ -613,7 +616,7 @@ function RecordsTab({
 }) {
   const { toast } = useToast()
   const speech = useSpeechRecognition(
-    (text) => onFormChange({ ...entryForm, content: entryForm.content ? entryForm.content + ' ' + text : text }),
+    (text) => onFormChange({ ...entryForm, content: entryForm.content ? entryForm.content + ' ' + cleanSpeech(text) : cleanSpeech(text) }),
     (err) => toast(err, 'error')
   )
 
