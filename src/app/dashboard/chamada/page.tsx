@@ -73,6 +73,8 @@ export default function ChamadaPage() {
   const menuRef = useRef<HTMLDivElement>(null)
   const monthPickerRef = useRef<HTMLDivElement>(null)
   const dayMenuRef = useRef<HTMLDivElement>(null)
+  const specialDaysRef = useRef(specialDays)
+  specialDaysRef.current = specialDays
 
   const today = getTodayISO()
 
@@ -260,7 +262,7 @@ export default function ChamadaPage() {
     if (!selectedClass || students.length === 0 || saving) return
 
     const changedDates = dates.filter(date => {
-      if (date > today || specialDays[date]) return false
+      if (date > today || specialDaysRef.current[date]) return false
       return students.some(st => {
         const tDate = transferredDate[st.id]
         if (tDate && date >= tDate) return false
@@ -305,7 +307,7 @@ export default function ChamadaPage() {
     } finally {
       setSaving(false)
     }
-  }, [selectedClass, students, dates, attendance, lastSaved, sessions, today, saving, toast, transferredDate, specialDays])
+  }, [selectedClass, students, dates, attendance, lastSaved, sessions, today, saving, toast, transferredDate])
 
   useEffect(() => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
@@ -644,7 +646,7 @@ export default function ChamadaPage() {
                                 width: 28, height: 28, borderRadius: 6, border: 'none',
                                 background: isSpecialDay ? `${sdInfo?.color || '#3b82f6'}15` : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
                                 color: isSpecialDay ? (sdInfo?.color || '#3b82f6') : isTransfered ? 'var(--text-muted)' : cellColors[status as Status],
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                 cursor: isFuture || isTransfered || isSpecialDay ? 'default' : 'pointer',
                                 fontSize: 14,
                               }}
