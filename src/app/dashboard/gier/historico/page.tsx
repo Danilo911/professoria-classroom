@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { FileText, ArrowLeft, Trash2 } from 'lucide-react'
+import { FileText, ArrowLeft, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { useToast } from '@/lib/toast'
 import { getGierSubmissions, deleteGierSubmission } from '@/lib/db'
 import { formatDateBR } from '@/lib/dates'
@@ -26,6 +26,7 @@ interface HistoryItem {
 export default function GierHistoricoPage() {
   const [items, setItems] = useState<HistoryItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set())
   const { toast } = useToast()
 
   useEffect(() => {
@@ -34,6 +35,31 @@ export default function GierHistoricoPage() {
       .catch(() => toast('Erro ao carregar histórico', 'error'))
       .finally(() => setLoading(false))
   }, [toast])
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, HistoryItem[]>()
+    for (const item of items) {
+      const key = item.activity_date || 'sem-data'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(item)
+    }
+    const sorted = Array.from(map.entries())
+    sorted.sort((a, b) => {
+      if (a[0] === 'sem-data') return 1
+      if (b[0] === 'sem-data') return -1
+      return b[0].localeCompare(a[0])
+    })
+    return sorted
+  }, [items])
+
+  function toggleDate(date: string) {
+    setExpandedDates(prev => {
+      const next = new Set(prev)
+      if (next.has(date)) next.delete(date)
+      else next.add(date)
+      return next
+    })
+  }
 
   async function handleDelete(id: string) {
     if (!confirm('Excluir este registro?')) return
@@ -74,42 +100,83 @@ export default function GierHistoricoPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {items.map(item => (
-            <div key={item.id} className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                  {item.class?.name && (
-                    <span style={{
-                      fontSize: 12, fontWeight: 600, color: 'var(--primary)',
-                      background: 'var(--primary-50)', padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                    }}>{item.class.name}</span>
-                  )}
-                  {item.ai_interpretation?.component && (
-                    <span style={{
-                      fontSize: 12, fontWeight: 600, color: 'var(--secondary)',
-                      background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                    }}>{item.ai_interpretation.component}</span>
-                  )}
-                  {item.activity_date && (
-                    <span style={{
-                      fontSize: 12, color: 'var(--text-muted)',
-                      background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                    }}>{formatDateBR(item.activity_date)}</span>
-                  )}
+          {grouped.map(([date, dayItems]) => {
+            const isOpen = expandedDates.has(date)
+            return (
+              <div key={date} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <button
+                  onClick={() => toggleDate(date)}
+                  style={{
+                    width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                    padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12,
+                    color: 'var(--text-primary)', fontSize: 15, fontWeight: 600,
+                    fontFamily: 'inherit', textAlign: 'left',
+                  }}
+                >
+                  {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                  <span style={{ flex: 1 }}>
+                    {date === 'sem-data' ? 'Sem data definida' : formatDateBR(date)}
+                  </span>
                   <span style={{
-                    fontSize: 12, color: 'var(--text-muted)',
-                    background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                  }}>{formatDateBR(item.created_at.split('T')[0])}</span>
-                </div>
-                <p style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {item.gier_description || 'Sem descrição'}
-                </p>
+                    fontSize: 12, fontWeight: 500, color: 'var(--text-muted)',
+                    background: 'var(--bg-secondary)', padding: '2px 10px',
+                    borderRadius: 'var(--radius-full)',
+                  }}>
+                    {dayItems.length} {dayItems.length === 1 ? 'item' : 'itens'}
+                  </span>
+                </button>
+                {isOpen && (
+                  <div style={{ borderTop: '1px solid var(--border)' }}>
+                    {dayItems.map(item => (
+                      <div
+                        key={item.id}
+                        style={{
+                          padding: '14px 20px 14px 52px',
+                          display: 'flex', justifyContent: 'space-between',
+                          alignItems: 'flex-start', gap: 16, flexWrap: 'wrap',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 200 }}>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                            {item.class?.name && (
+                              <span style={{
+                                fontSize: 12, fontWeight: 600, color: 'var(--primary)',
+                                background: 'var(--primary-50)', padding: '2px 8px',
+                                borderRadius: 'var(--radius-full)',
+                              }}>{item.class.name}</span>
+                            )}
+                            {item.ai_interpretation?.component && (
+                              <span style={{
+                                fontSize: 12, fontWeight: 600, color: 'var(--secondary)',
+                                background: 'var(--bg-secondary)', padding: '2px 8px',
+                                borderRadius: 'var(--radius-full)',
+                              }}>{item.ai_interpretation.component}</span>
+                            )}
+                          </div>
+                          <p style={{
+                            fontSize: 14, lineHeight: 1.5, color: 'var(--text-primary)',
+                            display: '-webkit-box', WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                          }}>
+                            {item.gier_description || 'Sem descrição'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: 'var(--text-muted)', flexShrink: 0 }}
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <button onClick={() => handleDelete(item.id)} className="btn btn-ghost btn-sm" style={{ color: 'var(--text-muted)', flexShrink: 0 }} title="Excluir">
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
