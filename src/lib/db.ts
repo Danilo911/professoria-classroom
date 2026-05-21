@@ -5,6 +5,7 @@ import type {
   StudentObservation, AIReport, GierSubmission,
   CurriculumSkill, SkillAssessment, LessonPlan, School, Grade,
 } from '@/types'
+import { getTodayISO } from '@/lib/dates'
 
 // Cache de sessão para evitar N chamadas auth.getUser()
 let cachedUserId: string | null = null
@@ -192,14 +193,14 @@ export async function getSessionByDate(classId: string, date: string): Promise<A
 }
 
 export async function getTodaySession(classId: string): Promise<AttendanceSession | null> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getTodayISO()
   return getSessionByDate(classId, today)
 }
 
 export async function createAttendanceSession(classId: string, date?: string): Promise<AttendanceSession> {
   const supabase = createClient()
   const userId = await getUserId()
-  const sessionDate = date || new Date().toISOString().split('T')[0]
+  const sessionDate = date || getTodayISO()
 
   const { data, error } = await supabase
     .from('attendance_sessions')
@@ -297,7 +298,7 @@ export async function createDiaryEntry(input: {
   const userId = await getUserId()
   const { data, error } = await supabase
     .from('diary_entries')
-    .insert({ ...input, teacher_id: userId!, date: input.date || new Date().toISOString().split('T')[0] })
+    .insert({ ...input, teacher_id: userId!, date: input.date || getTodayISO() })
     .select()
     .single()
   if (error) throw error
@@ -351,7 +352,7 @@ export async function createStudentObservation(input: {
     .insert({
       ...input,
       teacher_id: userId!,
-      date: new Date().toISOString().split('T')[0],
+      date: getTodayISO(),
     })
     .select()
     .single()

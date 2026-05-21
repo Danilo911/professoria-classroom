@@ -18,8 +18,10 @@ export function getTodayISO(): string {
 
 export function formatDateBR(dateStr: string): string {
   if (!dateStr) return ''
-  const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('pt-BR')
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day, 12)).toLocaleDateString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+  })
 }
 
 export function formatDateTimeBR(isoStr: string): string {

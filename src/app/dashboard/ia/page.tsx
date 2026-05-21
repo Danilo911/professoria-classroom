@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Sparkles, FileText, Users, MessageSquare, Lightbulb, ClipboardCopy, Check, Download, FileDown, Upload, Copy, Plus, ChevronRight, User, X, FileText as FileTextIcon, ArrowLeft, Calendar } from 'lucide-react'
 import { getClasses, getClassStudents, getStudentObservations, saveAIReport, getAIReports, getDiaryEntries, getTeacher } from '@/lib/db'
 import { useToast } from '@/lib/toast'
+import { getTodayISO } from '@/lib/dates'
 import type { Class, Student, AIReport, Teacher } from '@/types'
 
 const reportTypes = [
@@ -453,7 +454,7 @@ export default function IAPage() {
   }
 
   function getExportData(): string {
-    return new Date().toISOString().split('T')[0]
+    return getTodayISO()
   }
 
   function handleExportTxt() {

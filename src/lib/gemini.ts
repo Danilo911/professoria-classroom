@@ -174,11 +174,13 @@ export async function generateReport(request: GeminiReportRequest): Promise<{ co
   throw new Error('Nenhuma chave de API configurada (GEMINI_API_KEY ou GROQ_API_KEY)')
 }
 
+const GIER_PROMPT_BASE = 'Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade (extraia da imagem se houver), 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente, 4) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.'
+
+const GIER_PROMPT_TEXT = 'Analise esta descrição de atividade escolar aplicada para a turma toda. Identifique: 1) O componente curricular, 2) A Unidade Temática Específica (UTE) correspondente, 3) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 4) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 5) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.'
+
 async function analisarComGroqGier(request: GeminiGierRequest): Promise<GeminiGierResponse> {
   const key = process.env.GROQ_API_KEY
   if (!key) throw new Error('GROQ_API_KEY não configurada')
-
-  let prompt = 'Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade (extraia da imagem se houver), 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente, 4) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.'
 
   let messages: any[]
 
@@ -189,18 +191,18 @@ async function analisarComGroqGier(request: GeminiGierRequest): Promise<GeminiGi
     const mime = mimeMap[request.mimeType] || 'image/jpeg'
 
     if (isPdf) {
-      messages = [{ role: 'user', content: `${prompt}${desc}\n\nO arquivo enviado é um PDF em base64.` }]
+      messages = [{ role: 'user', content: `${GIER_PROMPT_BASE}${desc}\n\nO arquivo enviado é um PDF em base64.` }]
     } else {
       messages = [{
         role: 'user',
         content: [
-          { type: 'text', text: `${prompt}${desc}` },
+          { type: 'text', text: `${GIER_PROMPT_BASE}${desc}` },
           { type: 'image_url', image_url: { url: `data:${mime};base64,${request.imageBase64}` } },
         ],
       }]
     }
   } else if (request.textDescription) {
-    messages = [{ role: 'user', content: `${prompt}\n\nAtividade: ${request.textDescription}` }]
+    messages = [{ role: 'user', content: `${GIER_PROMPT_BASE}\n\nAtividade: ${request.textDescription}` }]
   } else {
     throw new Error('Nenhuma imagem ou texto fornecido')
   }
@@ -284,11 +286,11 @@ export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGie
         if (request.imageBase64 && request.mimeType) {
         const desc = request.textDescription ? `\n\nDescrição fornecida pelo professor: ${request.textDescription}` : ''
         contents = [
-          { text: `Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade, 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente, 4) O SABER correspondente (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.${desc}` },
+          { text: `${GIER_PROMPT_BASE}${desc}` },
           { inlineData: { data: request.imageBase64, mimeType: request.mimeType } },
         ]
       } else if (request.textDescription) {
-        contents = `Analise esta descrição de atividade escolar aplicada para a turma toda. Identifique: 1) O componente curricular, 2) A Unidade Temática Específica (UTE) correspondente, 3) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 4) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 5) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.\n\nAtividade: ${request.textDescription}`
+        contents = `${GIER_PROMPT_TEXT}\n\nAtividade: ${request.textDescription}`
       } else {
         throw new Error('Nenhuma imagem ou texto fornecido')
       }
