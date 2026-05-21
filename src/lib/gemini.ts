@@ -17,7 +17,6 @@ export interface GeminiGierRequest {
   imageBase64?: string
   mimeType?: string
   textDescription?: string
-  qsnSkills?: { code: string; description: string; component: string; axis?: string; grade: string }[]
 }
 
 export interface GeminiGierResponse {
@@ -179,12 +178,7 @@ async function analisarComGroqGier(request: GeminiGierRequest): Promise<GeminiGi
   const key = process.env.GROQ_API_KEY
   if (!key) throw new Error('GROQ_API_KEY não configurada')
 
-  let prompt = 'Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade (extraia da imagem se houver), 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente no QSN, 4) O SABER correspondente (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.'
-
-  if (request.qsnSkills && request.qsnSkills.length > 0) {
-    const skillsText = request.qsnSkills.slice(0, 30).map(s => `• ${s.component}: ${s.description.slice(0, 120)}`).join('\n')
-    prompt += `\n\nHabilidades do QSN disponíveis para esta turma (escolha a mais adequada e use apenas a descrição, sem o código):\n${skillsText}`
-  }
+  let prompt = 'Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade (extraia da imagem se houver), 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente, 4) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.'
 
   let messages: any[]
 
@@ -282,12 +276,6 @@ function parseGierResponse(text: string): GeminiGierResponse {
 export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGierResponse> {
   let lastError: Error | null = null
 
-  let qsnContext = ''
-  if (request.qsnSkills && request.qsnSkills.length > 0) {
-    const skillsText = request.qsnSkills.slice(0, 30).map(s => `• ${s.component}: ${s.description.slice(0, 120)}`).join('\n')
-    qsnContext = `\n\nHabilidades do QSN disponíveis para esta turma (escolha a mais adequada e use apenas a descrição, sem o código):\n${skillsText}`
-  }
-
   // Tenta Gemini primeiro
   if (process.env.GEMINI_API_KEY) {
     try {
@@ -296,11 +284,11 @@ export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGie
         if (request.imageBase64 && request.mimeType) {
         const desc = request.textDescription ? `\n\nDescrição fornecida pelo professor: ${request.textDescription}` : ''
         contents = [
-          { text: `Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade, 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente no QSN, 4) O SABER correspondente (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.${qsnContext}${desc}` },
+          { text: `Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade, 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente, 4) O SABER correspondente (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.${desc}` },
           { inlineData: { data: request.imageBase64, mimeType: request.mimeType } },
         ]
       } else if (request.textDescription) {
-        contents = `Analise esta descrição de atividade escolar aplicada para a turma toda. Identifique: 1) O componente curricular, 2) A Unidade Temática Específica (UTE) correspondente no QSN, 3) O SABER correspondente (apenas a descrição do saber/objetivo, SEM códigos), 4) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 5) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.${qsnContext}\n\nAtividade: ${request.textDescription}`
+        contents = `Analise esta descrição de atividade escolar aplicada para a turma toda. Identifique: 1) O componente curricular, 2) A Unidade Temática Específica (UTE) correspondente, 3) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 4) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 5) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.\n\nAtividade: ${request.textDescription}`
       } else {
         throw new Error('Nenhuma imagem ou texto fornecido')
       }
