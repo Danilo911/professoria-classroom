@@ -200,6 +200,7 @@ export async function getClassHolidays(classId: string, startDate: string, endDa
     .lte('date', endDate)
     .order('date')
   if (error) {
+    console.warn('getClassHolidays: columns type/description not found, falling back. Run migration 004.')
     const { data: fallback } = await supabase
       .from('class_holidays')
       .select('date')
