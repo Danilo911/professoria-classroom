@@ -30,7 +30,9 @@ export default function GierPage() {
 
   useEffect(() => {
     getClasses().then(list => {
-      setClasses(list.map(c => ({ id: c.id, name: c.name })))
+      const mapped = list.map(c => ({ id: c.id, name: c.name }))
+      setClasses(mapped)
+      if (mapped.length === 1) setSelectedClassId(mapped[0].id)
     }).catch(() => toast('Erro ao carregar turmas', 'error'))
   }, [toast])
 
@@ -322,12 +324,18 @@ export default function GierPage() {
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 160 }}>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Turma</label>
-                    <select className="input" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} style={{ fontSize: 16, minHeight: 44 }}>
-                      <option value="">Selecione...</option>
-                      {classes.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                    {classes.length <= 1 && selectedClassId ? (
+                      <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)', padding: '8px 0', display: 'block' }}>
+                        {classes.find(c => c.id === selectedClassId)?.name}
+                      </span>
+                    ) : (
+                      <select className="input" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} style={{ fontSize: 16, minHeight: 44 }}>
+                        <option value="">Selecione...</option>
+                        {classes.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   <div style={{ flex: 1, minWidth: 140 }}>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Data da atividade</label>

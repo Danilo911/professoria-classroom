@@ -323,9 +323,15 @@ export default function DiarioPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select className="input" style={{ maxWidth: 220, flex: '1 1 160px', minWidth: 140 }} value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
-          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        {classes.length <= 1 && selectedClass ? (
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', padding: '6px 0', flex: '1 1 160px' }}>
+            {classes.find(c => c.id === selectedClass)?.name}
+          </span>
+        ) : (
+          <select className="input" style={{ maxWidth: 220, flex: '1 1 160px', minWidth: 140 }} value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {(['grades', 'observations', 'records'] as Tab[]).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
