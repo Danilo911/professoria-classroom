@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Upload, Sparkles, Copy, Check, Pencil, Save, ExternalLink } from 'lucide-react'
 import { useToast } from '@/lib/toast'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { MicButton } from '@/components/ui/MicButton'
 import { fileToBase64 } from '@/lib/file'
 import { scheduleCorrection } from '@/lib/correctText'
+import { getClasses, saveGierSubmission } from '@/lib/db'
 
 export default function GierPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -18,8 +19,18 @@ export default function GierPage() {
   const [editando, setEditando] = useState(false)
   const [descEditavel, setDescEditavel] = useState('')
   const [copiado, setCopiado] = useState(false)
+  const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
+  const [selectedClassId, setSelectedClassId] = useState('')
+  const [activityDate, setActivityDate] = useState(new Date().toISOString().slice(0, 10))
+  const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+
+  useEffect(() => {
+    getClasses().then(list => {
+      setClasses(list.map(c => ({ id: c.id, name: c.name })))
+    }).catch(() => toast('Erro ao carregar turmas', 'error'))
+  }, [toast])
 
   function cleanSpeech(raw: string): string {
     let text = raw.trim()
@@ -122,6 +133,31 @@ export default function GierPage() {
       setTimeout(() => setCopiado(false), 2000)
     } catch {
       toast('Erro ao copiar', 'error')
+    }
+  }
+
+  async function handleSave() {
+    if (!result) return
+    if (!selectedClassId) { toast('Selecione uma turma', 'error'); return }
+    if (!activityDate) { toast('Selecione a data da atividade', 'error'); return }
+    setSaving(true)
+    try {
+      await saveGierSubmission({
+        class_id: selectedClassId,
+        gier_description: editando ? descEditavel : result.description,
+        ocr_extracted_text: result.text,
+        ai_interpretation: {
+          component: result.component,
+          skill_code: result.skill,
+          skill_description: result.description,
+        },
+        activity_date: activityDate,
+      })
+      toast('GIER salvo com sucesso!', 'success')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao salvar', 'error')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -266,6 +302,29 @@ export default function GierPage() {
                     </button>
                   </>
                 )}
+              </div>
+
+              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Turma</label>
+                    <select className="input" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} style={{ fontSize: 14 }}>
+                      <option value="">Selecione...</option>
+                      {classes.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Data da atividade</label>
+                    <input type="date" className="input" value={activityDate} onChange={e => setActivityDate(e.target.value)} style={{ fontSize: 14 }} />
+                  </div>
+                </div>
+                <button onClick={handleSave} className="btn btn-primary" disabled={saving} style={{ width: '100%' }}>
+                  {saving ? <><span className="spinner" /> Salvando...</> : <><Save size={16} /> Salvar no banco</>}
+                </button>
               </div>
             </div>
           </div>

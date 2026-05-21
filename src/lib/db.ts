@@ -511,9 +511,9 @@ export async function getGierSubmissions(filters?: { class_id?: string }): Promi
 }
 
 export async function saveGierSubmission(input: {
-  class_id: string
-  original_file_url: string
-  file_type: 'image' | 'pdf' | 'docx'
+  class_id?: string
+  original_file_url?: string
+  file_type?: 'image' | 'pdf' | 'docx'
   ocr_extracted_text?: string
   ai_interpretation?: {
     component: string
@@ -523,6 +523,7 @@ export async function saveGierSubmission(input: {
   }
   gier_description: string
   status?: 'processing' | 'completed' | 'error' | 'reviewed'
+  activity_date?: string
 }): Promise<GierSubmission> {
   const supabase = createClient()
   const userId = await getUserId()
@@ -532,6 +533,8 @@ export async function saveGierSubmission(input: {
     .from('gier_submissions')
     .insert({
       ...input,
+      original_file_url: input.original_file_url || '',
+      file_type: input.file_type || 'image',
       teacher_id: userId,
       status: input.status || 'completed'
     })

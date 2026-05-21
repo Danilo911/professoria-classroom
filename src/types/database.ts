@@ -194,6 +194,7 @@ export interface GierSubmission {
   gier_description?: string
   curriculum_skill_id?: string
   status: GierStatus
+  activity_date?: string
   created_at: string
 }
 
