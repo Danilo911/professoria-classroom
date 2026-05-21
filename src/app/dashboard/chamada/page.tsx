@@ -177,7 +177,7 @@ export default function ChamadaPage() {
     }))
   }
 
-  function openTransferMenu(studentId: string, e: React.MouseEvent) {
+  function openTransferMenu(studentId: string, e: React.MouseEvent | React.TouchEvent) {
     e.stopPropagation()
     const rect = (e.target as HTMLElement).getBoundingClientRect()
     setTransferMenu({ studentId, x: rect.left, y: rect.bottom + 4 })
@@ -305,7 +305,7 @@ export default function ChamadaPage() {
     } finally {
       setSaving(false)
     }
-  }, [selectedClass, students, dates, attendance, lastSaved, sessions, today, saving, toast, transferredDate])
+  }, [selectedClass, students, dates, attendance, lastSaved, sessions, today, saving, toast, transferredDate, specialDays])
 
   useEffect(() => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
@@ -510,7 +510,8 @@ export default function ChamadaPage() {
                             fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                             color: tDate ? 'var(--text-muted)' : undefined,
                             textDecoration: tDate ? 'line-through' : undefined,
-                          }}>{st.full_name}</div>
+                            cursor: 'pointer',
+                          }} onClick={(e) => openTransferMenu(st.id, e)}>{st.full_name}</div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
@@ -586,7 +587,7 @@ export default function ChamadaPage() {
                       }} title={sd ? (sdInfo?.label || '') : isFuture ? '' : 'Clique para definir tipo de dia'}>
                         <div style={{ fontSize: 10, color: sd ? (sdInfo?.color || '#3b82f6') : 'var(--text-muted)', textTransform: 'uppercase' }}>{day}</div>
                         <div style={{ fontSize: 13, fontWeight: 600 }}>{dayNum}</div>
-                        {sd && <div style={{ fontSize: 8, marginTop: 2 }}>{sdInfo?.icon}</div>}
+                        {sd && <div style={{ fontSize: 6, marginTop: 1, color: sdInfo?.color || '#3b82f6', fontWeight: 600 }}>{sdInfo?.label.slice(0, 2)}</div>}
                       </th>
                     )
                   })}
