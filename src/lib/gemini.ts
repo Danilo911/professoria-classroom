@@ -60,14 +60,15 @@ const SYSTEM_PROMPTS = {
 - Adaptações para alunos com necessidades especiais
 - Critérios de avaliação`,
 
-  referral: `Você é um assistente pedagógico especializado em educação inclusiva. Gere um documento de encaminhamento profissional e empático, em português do Brasil. O texto deve:
+  referral: `Você é um professor da rede municipal de Guarulhos-SP. Redija um documento de encaminhamento profissional, em português do Brasil. O texto deve:
 - Descrever os comportamentos observados e dificuldades do aluno em sala de aula
-- Relacionar as observações ao tipo específico de encaminhamento solicitado
 - Incluir exemplos concretos de situações do dia a dia escolar
 - Mencionar estratégias pedagógicas já utilizadas em sala
 - Ser claro e objetivo para o profissional de saúde que receberá o encaminhamento
 - Ter entre 2-4 parágrafos
-- Usar linguagem profissional e respeitosa`,
+- Usar linguagem profissional e respeitosa
+
+IMPORTANTE: O tipo específico de encaminhamento (suspeita ou especialidade) é metadado do cabeçalho do documento. NÃO mencione o tipo de encaminhamento no corpo do texto.`,
 }
 
 function buildReportPrompt(request: GeminiReportRequest): string {
@@ -86,7 +87,7 @@ function buildReportPrompt(request: GeminiReportRequest): string {
       multi: 'Equipe Multidisciplinar',
       outro: 'Outro encaminhamento',
     }
-    referralSection = `\n\nTipo de encaminhamento: ${labels[request.referralType] || request.referralType}`
+    referralSection = `\n\nContexto — motivo do encaminhamento (NÃO incluir no corpo do texto): ${labels[request.referralType] || request.referralType}`
   }
 
   let qsnSection = ''

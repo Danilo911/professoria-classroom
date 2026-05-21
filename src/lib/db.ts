@@ -4,6 +4,7 @@ import type {
   AttendanceSession, AttendanceRecord, DiaryEntry,
   StudentObservation, AIReport, GierSubmission,
   CurriculumSkill, SkillAssessment, LessonPlan, School, Grade,
+  Rubric, RubricEvaluation,
 } from '@/types'
 import { getTodayISO } from '@/lib/dates'
 
@@ -628,4 +629,172 @@ export async function upsertSchool(data: { name: string; city?: string; state?: 
     }
     await supabase.from('teachers').update({ school_id: school.id }).eq('id', userId)
   }
+}
+
+// ==================== CLASS UPDATE/DELETE ====================
+
+export async function updateClass(id: string, data: { name?: string; grade?: string; period?: string }): Promise<Class> {
+  const supabase = createClient()
+  const { data: updated, error } = await supabase
+    .from('classes')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return updated
+}
+
+export async function deleteClass(id: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('classes')
+    .update({ is_active: false })
+    .eq('id', id)
+  if (error) throw error
+}
+
+// ==================== RUBRICS ====================
+
+export async function getRubrics(): Promise<Rubric[]> {
+  const supabase = createClient()
+  const userId = await getUserId()
+  const { data } = await supabase
+    .from('rubrics')
+    .select('*, criteria:rubric_criteria(*), levels:rubric_levels(*)')
+    .eq('teacher_id', userId)
+    .order('created_at', { ascending: false })
+  return data || []
+}
+
+export async function getRubric(id: string): Promise<Rubric | null> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('rubrics')
+    .select('*, criteria:rubric_criteria(*), levels:rubric_levels(*)')
+    .eq('id', id)
+    .single()
+  return data
+}
+
+export async function createRubric(input: {
+  title: string
+  type: 'rubric' | 'checklist'
+  criteria: { description: string; sort_order: number }[]
+  levels: { level: number; label: string; color: string }[]
+}): Promise<Rubric> {
+  const supabase = createClient()
+  const userId = await getUserId()
+
+  const { data, error } = await supabase
+    .from('rubrics')
+    .insert({ teacher_id: userId, title: input.title, type: input.type })
+    .select()
+    .single()
+  if (error) throw error
+
+  if (input.criteria.length > 0) {
+    const { error: errC } = await supabase.from('rubric_criteria').insert(
+      input.criteria.map(c => ({ rubric_id: data.id, ...c }))
+    )
+    if (errC) throw errC
+  }
+
+  if (input.levels.length > 0) {
+    const { error: errL } = await supabase.from('rubric_levels').insert(
+      input.levels.map(l => ({ rubric_id: data.id, ...l }))
+    )
+    if (errL) throw errL
+  }
+
+  const rubric = await getRubric(data.id)
+  return rubric!
+}
+
+export async function updateRubric(id: string, input: {
+  title?: string
+  criteria?: { description: string; sort_order: number }[]
+  levels?: { level: number; label: string; color: string }[]
+}): Promise<Rubric> {
+  const supabase = createClient()
+
+  if (input.title) {
+    await supabase.from('rubrics').update({ title: input.title }).eq('id', id)
+  }
+
+  if (input.criteria) {
+    await supabase.from('rubric_criteria').delete().eq('rubric_id', id)
+    if (input.criteria.length > 0) {
+      await supabase.from('rubric_criteria').insert(
+        input.criteria.map(c => ({ rubric_id: id, ...c }))
+      )
+    }
+  }
+
+  if (input.levels) {
+    await supabase.from('rubric_levels').delete().eq('rubric_id', id)
+    if (input.levels.length > 0) {
+      await supabase.from('rubric_levels').insert(
+        input.levels.map(l => ({ rubric_id: id, ...l }))
+      )
+    }
+  }
+
+  const rubric = await getRubric(id)
+  return rubric!
+}
+
+export async function deleteRubric(id: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase.from('rubrics').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function getRubricEvaluations(rubricId: string, classId: string, date?: string): Promise<RubricEvaluation[]> {
+  const supabase = createClient()
+  let query = supabase
+    .from('rubric_evaluations')
+    .select('*, student:students(*), scores:rubric_scores(*)')
+    .eq('rubric_id', rubricId)
+    .eq('class_id', classId)
+  if (date) query = query.eq('evaluated_at', date)
+  const { data } = await query.order('evaluated_at', { ascending: false })
+  return data || []
+}
+
+export async function saveRubricEvaluation(input: {
+  rubricId: string
+  studentId: string
+  classId: string
+  evaluatedAt: string
+  notes?: string
+  scores: { criterion_id: string; level: number }[]
+}): Promise<RubricEvaluation> {
+  const supabase = createClient()
+  const userId = await getUserId()
+
+  const { data, error } = await supabase
+    .from('rubric_evaluations')
+    .upsert({
+      rubric_id: input.rubricId,
+      student_id: input.studentId,
+      class_id: input.classId,
+      teacher_id: userId,
+      evaluated_at: input.evaluatedAt,
+      notes: input.notes || null,
+    }, { onConflict: 'rubric_id,student_id,class_id,evaluated_at' })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  if (input.scores.length > 0) {
+    await supabase.from('rubric_scores').delete().eq('evaluation_id', data.id)
+    const { error: errS } = await supabase.from('rubric_scores').insert(
+      input.scores.map(s => ({ evaluation_id: data.id, ...s }))
+    )
+    if (errS) throw errS
+  }
+
+  return data
 }

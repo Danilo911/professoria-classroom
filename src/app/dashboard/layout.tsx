@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Users, ClipboardCheck, BookOpen,
   Sparkles, FileText, Calendar, Settings, LogOut,
   Menu, X, ChevronLeft, MoreHorizontal, Stethoscope,
+  ClipboardList,
 } from 'lucide-react'
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { href: '/dashboard/diario', label: 'Diário', icon: BookOpen },
   { href: '/dashboard/ia', label: 'IA Pedagógica', icon: Sparkles },
   { href: '/dashboard/encaminhamento', label: 'Encaminhamento', icon: Stethoscope },
+  { href: '/dashboard/avaliacao', label: 'Avaliação', icon: ClipboardList },
   { href: '/dashboard/gier', label: 'Gerador GIER', icon: FileText },
   { href: '/dashboard/planejamento', label: 'Planejamento', icon: Calendar },
 ]

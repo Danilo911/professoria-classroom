@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, MoreVertical, Users } from 'lucide-react'
-import { getClasses, createClass } from '@/lib/db'
+import { Plus, Search, Users, Edit2, Trash2 } from 'lucide-react'
+import { getClasses, createClass, updateClass, deleteClass } from '@/lib/db'
 import { useToast } from '@/lib/toast'
 import type { Class } from '@/types'
 
@@ -20,7 +20,8 @@ export default function TurmasPage() {
   const [classes, setClasses] = useState<Class[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [showNewClass, setShowNewClass] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [editingClass, setEditingClass] = useState<Class | null>(null)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: '', grade: '1º Ano', period: 'manha' })
   const { toast } = useToast()
@@ -29,19 +30,47 @@ export default function TurmasPage() {
     getClasses().then(data => { setClasses(data); setLoading(false) })
   }, [])
 
-  async function handleCreate(e: React.FormEvent) {
+  function openNew() {
+    setEditingClass(null)
+    setForm({ name: '', grade: '1º Ano', period: 'manha' })
+    setShowModal(true)
+  }
+
+  function openEdit(turma: Class) {
+    setEditingClass(turma)
+    setForm({ name: turma.name, grade: turma.grade, period: turma.period })
+    setShowModal(true)
+  }
+
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     try {
-      const newClass = await createClass(form)
-      setClasses(prev => [...prev, newClass])
-      setShowNewClass(false)
-      setForm({ name: '', grade: '1º Ano', period: 'manha' })
-      toast('Turma criada com sucesso!', 'success')
+      if (editingClass) {
+        const updated = await updateClass(editingClass.id, form)
+        setClasses(prev => prev.map(c => c.id === updated.id ? updated : c))
+        toast('Turma atualizada!', 'success')
+      } else {
+        const newClass = await createClass(form)
+        setClasses(prev => [...prev, newClass])
+        toast('Turma criada!', 'success')
+      }
+      setShowModal(false)
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao criar turma', 'error')
+      toast(err instanceof Error ? err.message : 'Erro ao salvar turma', 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDelete(turma: Class) {
+    if (!confirm(`Excluir "${turma.name}"? Os alunos permanecem no sistema, mas a turma ficará inativa.`)) return
+    try {
+      await deleteClass(turma.id)
+      setClasses(prev => prev.filter(c => c.id !== turma.id))
+      toast('Turma excluída.', 'success')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao excluir', 'error')
     }
   }
 
@@ -56,7 +85,7 @@ export default function TurmasPage() {
           <h1 style={{ fontSize: 24, marginBottom: 4 }}>Minhas Turmas</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{classes.length} turmas ativas em {new Date().getFullYear()}</p>
         </div>
-        <button onClick={() => setShowNewClass(true)} className="btn btn-primary">
+        <button onClick={openNew} className="btn btn-primary">
           <Plus size={18} /> Nova turma
         </button>
       </div>
@@ -73,28 +102,35 @@ export default function TurmasPage() {
           {filtered.map((turma) => {
             const color = gradeColors[turma.grade] || 'var(--primary)'
             return (
-              <div key={turma.id} className="card card-interactive" style={{ padding: 0, overflow: 'hidden', cursor: 'pointer' }} onClick={() => router.push(`/dashboard/turmas/${turma.id}`)}>
-                <div style={{ height: 4, background: `linear-gradient(90deg, ${color}, ${color}88)` }} />
-                <div style={{ padding: 20 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                    <div>
-                      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{turma.name}</h3>
-                      <span className="badge" style={{ background: `${color}15`, color }}>{turma.period === 'manha' ? 'Manhã' : turma.period === 'tarde' ? 'Tarde' : 'Integral'}</span>
+              <div key={turma.id} className="card" style={{ padding: 0, overflow: 'visible' }}>
+                <div style={{ cursor: 'pointer' }} onClick={() => router.push(`/dashboard/turmas/${turma.id}`)}>
+                  <div style={{ height: 4, background: `linear-gradient(90deg, ${color}, ${color}88)` }} />
+                  <div style={{ padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                      <div>
+                        <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{turma.name}</h3>
+                        <span className="badge" style={{ background: `${color}15`, color }}>{turma.period === 'manha' ? 'Manhã' : turma.period === 'tarde' ? 'Tarde' : 'Integral'}</span>
+                      </div>
                     </div>
-                    <button className="btn btn-icon btn-ghost" style={{ marginTop: -4 }}>
-                      <MoreVertical size={18} />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: 14 }}>
+                      <Users size={16} />
+                      <span>{turma.student_count} alunos</span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: 14 }}>
-                    <Users size={16} />
-                    <span>{turma.student_count} alunos</span>
-                  </div>
+                </div>
+                <div style={{ borderTop: '1px solid var(--border)', padding: '8px 12px', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button onClick={() => openEdit(turma)} className="btn btn-sm btn-ghost" style={{ fontSize: 12 }}>
+                    <Edit2 size={14} /> Editar
+                  </button>
+                  <button onClick={() => handleDelete(turma)} className="btn btn-sm btn-ghost" style={{ fontSize: 12, color: 'var(--danger)' }}>
+                    <Trash2 size={14} /> Excluir
+                  </button>
                 </div>
               </div>
             )
           })}
 
-          <button onClick={() => setShowNewClass(true)} className="card" style={{
+          <button onClick={openNew} className="card" style={{
             padding: 40, display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center', gap: 8,
             cursor: 'pointer', border: '2px dashed var(--border)',
@@ -106,12 +142,12 @@ export default function TurmasPage() {
         </div>
       )}
 
-      {showNewClass && (
+      {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}
-          onClick={() => setShowNewClass(false)}>
+          onClick={() => setShowModal(false)}>
           <div className="card" style={{ width: '100%', maxWidth: 480, padding: 32 }} onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontSize: 20, marginBottom: 20 }}>Nova Turma</h2>
-            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h2 style={{ fontSize: 20, marginBottom: 20 }}>{editingClass ? 'Editar Turma' : 'Nova Turma'}</h2>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Nome da turma</label>
                 <input className="input" placeholder="Ex: 1º Ano C" value={form.name} required
@@ -134,9 +170,9 @@ export default function TurmasPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowNewClass(false)}>Cancelar</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Salvando...' : 'Criar turma'}
+                  {saving ? 'Salvando...' : editingClass ? 'Atualizar' : 'Criar turma'}
                 </button>
               </div>
             </form>

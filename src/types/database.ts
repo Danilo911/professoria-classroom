@@ -265,3 +265,49 @@ export interface Grade {
   // Joined
   student?: Student
 }
+
+export interface Rubric {
+  id: string
+  teacher_id: string
+  title: string
+  type: 'rubric' | 'checklist'
+  created_at: string
+  updated_at: string
+  criteria?: RubricCriterion[]
+  levels?: RubricLevel[]
+}
+
+export interface RubricCriterion {
+  id: string
+  rubric_id: string
+  description: string
+  sort_order: number
+}
+
+export interface RubricLevel {
+  id: string
+  rubric_id: string
+  level: number
+  label: string
+  color: string
+}
+
+export interface RubricEvaluation {
+  id: string
+  rubric_id: string
+  student_id: string
+  class_id: string
+  teacher_id: string
+  evaluated_at: string
+  notes: string | null
+  created_at: string
+  student?: Student
+  scores?: RubricScore[]
+}
+
+export interface RubricScore {
+  id: string
+  evaluation_id: string
+  criterion_id: string
+  level: number
+}
