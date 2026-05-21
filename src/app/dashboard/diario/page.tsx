@@ -7,7 +7,6 @@ import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { useToast } from '@/lib/toast'
 import { MicButton } from '@/components/ui/MicButton'
 import { getTodayISO, formatDateBR } from '@/lib/dates'
-import { scheduleCorrection } from '@/lib/correctText'
 import type { Class, Student, DiaryEntry, StudentObservation, Grade } from '@/types'
 
 type Tab = 'grades' | 'observations' | 'records'
@@ -74,9 +73,6 @@ export default function DiarioPage() {
       const cleaned = cleanSpeech(text)
       setObsForm(prev => {
         const updated = prev.content ? prev.content + ' ' + cleaned : cleaned
-        scheduleCorrection(updated, (corrected) => {
-          setObsForm(p => p.content === updated ? { ...p, content: corrected } : p)
-        })
         return { ...prev, content: updated }
       })
     },
@@ -733,9 +729,6 @@ function RecordsTab({
       const cleaned = cleanSpeech(text)
       const updated = entryForm.content ? entryForm.content + ' ' + cleaned : cleaned
       onFormChange({ ...entryForm, content: updated })
-      scheduleCorrection(updated, (corrected) => {
-        onFormChange({ ...entryForm, content: corrected })
-      })
     },
     (err) => toast(err, 'error')
   )

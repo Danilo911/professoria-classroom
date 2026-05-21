@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { analyzeGier, type GeminiGierRequest } from '@/lib/gemini'
-import { checkGrammar } from '@/lib/languagetool'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -30,12 +29,6 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await analyzeGier(body)
-
-    // Revisa só a descrição com LanguageTool
-    if (result.description) {
-      const { corrected } = await checkGrammar(result.description)
-      result.description = corrected
-    }
 
     return NextResponse.json(result)
   } catch (error) {

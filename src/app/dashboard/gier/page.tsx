@@ -6,7 +6,6 @@ import { useToast } from '@/lib/toast'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { MicButton } from '@/components/ui/MicButton'
 import { fileToBase64 } from '@/lib/file'
-import { scheduleCorrection } from '@/lib/correctText'
 import { getClasses, saveGierSubmission } from '@/lib/db'
 import { getTodayISO } from '@/lib/dates'
 
@@ -49,9 +48,6 @@ export default function GierPage() {
       const cleaned = cleanSpeech(text)
       setDescricao(prev => {
         const updated = prev ? prev + ' ' + cleaned : cleaned
-        scheduleCorrection(updated, (corrected) => {
-          setDescricao(p => p === updated ? corrected : p)
-        })
         return updated
       })
     },
@@ -169,8 +165,6 @@ export default function GierPage() {
     }
   }
 
-  const getIcon = () => null
-
   return (
     <div>
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -252,7 +246,7 @@ export default function GierPage() {
               </>
             ) : (
               <>
-                {preview ? <img src={preview} alt="Preview" style={{ maxHeight: 200, borderRadius: 'var(--radius-md)', marginBottom: 12, maxWidth: '100%' }} /> : getIcon()}
+                {preview ? <img src={preview} alt="Preview" style={{ maxHeight: 200, borderRadius: 'var(--radius-md)', marginBottom: 12, maxWidth: '100%' }} /> : null}
                 <p style={{ fontSize: 14, fontWeight: 500, marginTop: 8 }}>{file.name}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{(file.size / 1024 / 1024).toFixed(1)} MB</p>
               </>
@@ -348,7 +342,7 @@ export default function GierPage() {
             </div>
 
             {/* Divider */}
-            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0 24px' }} />
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0' }} />
 
             {/* Turma + Data + Salvar */}
             <div style={{ padding: '16px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>

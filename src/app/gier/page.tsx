@@ -6,7 +6,6 @@ import { useToast } from '@/lib/toast'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { MicButton } from '@/components/ui/MicButton'
 import { fileToBase64 } from '@/lib/file'
-import { scheduleCorrection } from '@/lib/correctText'
 
 const WEEKLY_LIMIT = 5
 
@@ -65,9 +64,6 @@ export default function GierPublicPage() {
       const cleaned = cleanSpeech(text)
       setDescricao(prev => {
         const updated = prev ? prev + ' ' + cleaned : cleaned
-        scheduleCorrection(updated, (corrected) => {
-          setDescricao(p => p === updated ? corrected : p)
-        })
         return updated
       })
     },
@@ -191,7 +187,7 @@ export default function GierPublicPage() {
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            {WEEKLY_LIMIT - usage.count}/{WEEKLY_LIMIT} esta semana
+            {Math.max(0, WEEKLY_LIMIT - usage.count)}/{WEEKLY_LIMIT} esta semana
           </span>
           <a href="/login" style={{ textDecoration: 'none' }}>
             <button className="btn btn-primary btn-sm">
@@ -211,7 +207,7 @@ export default function GierPublicPage() {
           </p>
         </div>
 
-        {limitReached && !result && (
+        {limitReached && (
           <div style={{
             background: 'var(--warning-light)', border: '1px solid var(--warning)',
             borderRadius: 'var(--radius-lg)', padding: 24, maxWidth: 500, width: '100%',
