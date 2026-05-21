@@ -291,7 +291,7 @@ export default function GierPage() {
               <p style={{ fontSize: 13, lineHeight: 1.6, marginTop: 6, whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{result.text}</p>
             </div>
 
-            {/* Card: Componente + UTE + SABER + APR */}
+            {/* Card: Componente + Eixo + Habilidade + Objeto de Conhecimento */}
             <div style={{ margin: '16px 24px', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border)' }}>
               {/* Componente Curricular */}
               <div style={{ background: 'var(--primary-50)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
@@ -300,17 +300,17 @@ export default function GierPage() {
               </div>
               {/* UTE */}
               <div style={{ background: 'var(--bg-surface)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Unidade Temática (UTE)</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Eixo</span>
                 <p style={{ fontSize: 14, fontWeight: 500, margin: '4px 0 0 0', lineHeight: 1.5 }}>{result.ute}</p>
               </div>
               {/* SABER */}
               <div style={{ background: 'var(--bg-surface)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Saber</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Habilidade</span>
                 <p style={{ fontSize: 14, margin: '4px 0 0 0', lineHeight: 1.5, color: 'var(--text-secondary)' }}>{result.saber}</p>
               </div>
               {/* APRENDIZAGEM */}
               <div style={{ background: 'var(--bg-surface)', padding: '12px 16px' }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Aprendizagem</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Objeto de Conhecimento</span>
                 <p style={{ fontSize: 14, margin: '4px 0 0 0', lineHeight: 1.5, color: 'var(--text-secondary)' }}>{result.apr}</p>
               </div>
             </div>

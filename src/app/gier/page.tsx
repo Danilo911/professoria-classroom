@@ -8,22 +8,29 @@ import { MicButton } from '@/components/ui/MicButton'
 import { fileToBase64 } from '@/lib/file'
 import { scheduleCorrection } from '@/lib/correctText'
 
-const DAILY_LIMIT = 5
+const WEEKLY_LIMIT = 5
 
-function getUsage(): { count: number; date: string } {
-  if (typeof window === 'undefined') return { count: 0, date: '' }
-  const date = localStorage.getItem('gier_date') || ''
-  const today = new Date().toISOString().split('T')[0]
-  if (date !== today) {
-    localStorage.setItem('gier_date', today)
+function getWeekKey(): string {
+  const now = new Date()
+  const startOfYear = new Date(now.getFullYear(), 0, 1)
+  const week = Math.ceil((((now.getTime() - startOfYear.getTime()) / 86400000) + startOfYear.getDay() + 1) / 7)
+  return `${now.getFullYear()}-W${String(week).padStart(2, '0')}`
+}
+
+function getUsage(): { count: number; week: string } {
+  if (typeof window === 'undefined') return { count: 0, week: '' }
+  const weekKey = getWeekKey()
+  const stored = localStorage.getItem('gier_week') || ''
+  if (stored !== weekKey) {
+    localStorage.setItem('gier_week', weekKey)
     localStorage.setItem('gier_count', '0')
-    return { count: 0, date: today }
+    return { count: 0, week: weekKey }
   }
-  return { count: Number(localStorage.getItem('gier_count') || 0), date }
+  return { count: Number(localStorage.getItem('gier_count') || 0), week: weekKey }
 }
 
 function incrementUsage() {
-  const { count, date } = getUsage()
+  const { count, week } = getUsage()
   localStorage.setItem('gier_count', String(count + 1))
 }
 
@@ -39,7 +46,7 @@ export default function GierPublicPage() {
   const [copiado, setCopiado] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
-  const [usage, setUsage] = useState({ count: 0, date: '' })
+  const [usage, setUsage] = useState({ count: 0, week: '' })
 
   useEffect(() => {
     setUsage(getUsage())
@@ -86,8 +93,8 @@ export default function GierPublicPage() {
     if (file && !file.type.startsWith('image/')) { toast('Envie apenas imagens', 'error'); return }
 
     const current = getUsage()
-    if (current.count >= DAILY_LIMIT) {
-      toast('Limite diário atingido! Crie uma conta gratuita para continuar.', 'error')
+    if (current.count >= WEEKLY_LIMIT) {
+      toast('Limite semanal atingido! Crie uma conta gratuita para continuar.', 'error')
       return
     }
 
@@ -160,7 +167,7 @@ export default function GierPublicPage() {
     }
   }
 
-  const limitReached = usage.count >= DAILY_LIMIT
+  const limitReached = usage.count >= WEEKLY_LIMIT
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
@@ -184,7 +191,7 @@ export default function GierPublicPage() {
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            {DAILY_LIMIT - usage.count}/{DAILY_LIMIT} hoje
+            {WEEKLY_LIMIT - usage.count}/{WEEKLY_LIMIT} esta semana
           </span>
           <a href="/login" style={{ textDecoration: 'none' }}>
             <button className="btn btn-primary btn-sm">
@@ -200,7 +207,7 @@ export default function GierPublicPage() {
           <h1 style={{ fontSize: 28, marginBottom: 8 }}>Gerador GIER</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.5 }}>
             Transforme suas atividades em descrições pedagógicas prontas para o GIER.
-            {!limitReached && <span> {DAILY_LIMIT} gerações gratuitas por dia.</span>}
+            {!limitReached && <span> {WEEKLY_LIMIT} gerações gratuitas por semana.</span>}
           </p>
         </div>
 
@@ -210,9 +217,9 @@ export default function GierPublicPage() {
             borderRadius: 'var(--radius-lg)', padding: 24, maxWidth: 500, width: '100%',
             textAlign: 'center', marginBottom: 24,
           }}>
-            <h3 style={{ fontSize: 16, marginBottom: 8, color: '#92400E' }}>Limite diário atingido</h3>
+            <h3 style={{ fontSize: 16, marginBottom: 8, color: '#92400E' }}>Limite semanal atingido</h3>
             <p style={{ fontSize: 14, color: '#92400E', marginBottom: 16 }}>
-              Você usou todas as {DAILY_LIMIT} gerações gratuitas de hoje.
+              Você usou todas as {WEEKLY_LIMIT} gerações gratuitas desta semana.
               Crie uma conta gratuita para continuar gerando.
             </p>
             <a href="/login">
@@ -314,7 +321,7 @@ export default function GierPublicPage() {
                 <p style={{ fontSize: 13, lineHeight: 1.6, marginTop: 6, whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{result.text}</p>
               </div>
 
-              {/* Card: Componente + UTE + SABER + APR */}
+              {/* Card: Componente + Eixo + Habilidade + Objeto de Conhecimento */}
               <div style={{ margin: '16px 24px', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border)' }}>
                 {/* Componente Curricular */}
                 <div style={{ background: 'var(--primary-50)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
@@ -323,17 +330,17 @@ export default function GierPublicPage() {
                 </div>
                 {/* UTE */}
                 <div style={{ background: 'var(--bg-surface)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Unidade Temática (UTE)</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Eixo</span>
                   <p style={{ fontSize: 14, fontWeight: 500, margin: '4px 0 0 0', lineHeight: 1.5 }}>{result.ute}</p>
                 </div>
                 {/* SABER */}
                 <div style={{ background: 'var(--bg-surface)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Saber</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Habilidade</span>
                   <p style={{ fontSize: 14, margin: '4px 0 0 0', lineHeight: 1.5, color: 'var(--text-secondary)' }}>{result.saber}</p>
                 </div>
                 {/* APRENDIZAGEM */}
                 <div style={{ background: 'var(--bg-surface)', padding: '12px 16px' }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Aprendizagem</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Objeto de Conhecimento</span>
                   <p style={{ fontSize: 14, margin: '4px 0 0 0', lineHeight: 1.5, color: 'var(--text-secondary)' }}>{result.apr}</p>
                 </div>
               </div>
