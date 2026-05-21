@@ -322,7 +322,7 @@ export default function GierPage() {
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 160 }}>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Turma</label>
-                    <select className="input" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} style={{ fontSize: 14 }}>
+                    <select className="input" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} style={{ fontSize: 16, minHeight: 44 }}>
                       <option value="">Selecione...</option>
                       {classes.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
@@ -331,7 +331,7 @@ export default function GierPage() {
                   </div>
                   <div style={{ flex: 1, minWidth: 140 }}>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Data da atividade</label>
-                    <input type="date" className="input" value={activityDate} onChange={e => setActivityDate(e.target.value)} style={{ fontSize: 14 }} />
+                    <input type="date" className="input" value={activityDate} onChange={e => setActivityDate(e.target.value)} style={{ fontSize: 16, minHeight: 44 }} />
                   </div>
                 </div>
                 <button onClick={handleSave} className="btn btn-primary" disabled={saving} style={{ width: '100%' }}>
