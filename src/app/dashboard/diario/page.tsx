@@ -471,7 +471,7 @@ export default function DiarioPage() {
           {/* Desktop Table View (>768px) */}
           <div className="desktop-only" style={{ display: 'block' }}>
             <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 600 }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: 13, minWidth: 'max-content' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-secondary)' }}>
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 2, borderBottom: '2px solid var(--border)', minWidth: 180 }}>Aluno</th>
@@ -859,7 +859,7 @@ function RecordsTab({
       )}
 
       <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <table style={{ borderCollapse: 'collapse', fontSize: 13, minWidth: 'max-content' }}>
           <thead>
             <tr style={{ background: 'var(--bg-secondary)' }}>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, borderBottom: '2px solid var(--border)', minWidth: 100 }}>Data</th>
