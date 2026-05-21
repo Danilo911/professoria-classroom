@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
   LayoutDashboard, Users, ClipboardCheck, BookOpen,
   Sparkles, FileText, Calendar, Settings, LogOut,
@@ -203,7 +202,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Page Content */}
         <main style={{ flex: 1, padding: '24px' }}>
-          <ErrorBoundary>{children}</ErrorBoundary>
+          {children}
         </main>
       </div>
 
