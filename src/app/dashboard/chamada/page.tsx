@@ -228,8 +228,8 @@ export default function ChamadaPage() {
         if (dayMenuType) {
           await upsertHoliday(selectedClass, date, dayMenuType, dayMenuDescription || null)
         }
-      } catch {
-        toast('Erro ao salvar', 'error')
+      } catch (err) {
+        toast(err instanceof Error ? err.message : 'Erro ao salvar tipo de dia', 'error')
       } finally {
         setSavingHolidays(false)
       }
@@ -249,8 +249,8 @@ export default function ChamadaPage() {
       setSavingHolidays(true)
       try {
         await deleteHoliday(selectedClass, date)
-      } catch {
-        toast('Erro ao remover', 'error')
+      } catch (err) {
+        toast(err instanceof Error ? `Erro: ${err.message}` : 'Erro ao remover', 'error')
       } finally {
         setSavingHolidays(false)
       }
@@ -303,7 +303,7 @@ export default function ChamadaPage() {
       setLastSaved(JSON.parse(JSON.stringify(attendance)))
       if (savedCount > 0) toast(`${savedCount} dia(s) salvo(s)`, 'success')
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao salvar', 'error')
+      toast(err instanceof Error ? `Erro: ${err.message}` : 'Erro ao salvar faltas', 'error')
     } finally {
       setSaving(false)
     }

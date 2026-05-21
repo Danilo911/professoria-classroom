@@ -192,13 +192,23 @@ export async function completeSession(sessionId: string) {
 
 export async function getClassHolidays(classId: string, startDate: string, endDate: string): Promise<{ date: string; type: string; description: string | null }[]> {
   const supabase = createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('class_holidays')
     .select('date, type, description')
     .eq('class_id', classId)
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date')
+  if (error) {
+    const { data: fallback } = await supabase
+      .from('class_holidays')
+      .select('date')
+      .eq('class_id', classId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date')
+    return (fallback || []).map(d => ({ date: d.date, type: 'holiday', description: null }))
+  }
   return data || []
 }
 
@@ -207,7 +217,16 @@ export async function upsertHoliday(classId: string, date: string, type: string 
   const { error } = await supabase
     .from('class_holidays')
     .upsert({ class_id: classId, date, type, description }, { onConflict: 'class_id,date' })
-  if (error) throw error
+  if (error) {
+    if (error.message?.includes('type') || error.message?.includes('column')) {
+      const { error: fallbackError } = await supabase
+        .from('class_holidays')
+        .upsert({ class_id: classId, date }, { onConflict: 'class_id,date' })
+      if (fallbackError) throw fallbackError
+    } else {
+      throw error
+    }
+  }
 }
 
 export async function deleteHoliday(classId: string, date: string) {
