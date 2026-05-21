@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Check, X, FileText, Minus, Calendar, XCircle, Umbrella, Users, Building, BookOpen } from 'lucide-react'
-import { getClassStudents, getSessionsByRange, createAttendanceSession, saveAttendanceRecords, completeSession, getClassHolidays, upsertHoliday, deleteHoliday } from '@/lib/db'
+import { getClassStudents, getSessionsByRange, createAttendanceSession, saveAttendanceRecords, completeSession, getClassHolidays, upsertHoliday, deleteHoliday, getTransfers, saveTransfer as saveTransferDB, removeTransfer as removeTransferDB } from '@/lib/db'
 import { getClasses } from '@/lib/db'
 import { useToast } from '@/lib/toast'
 import { getTodayISO, formatDateBR } from '@/lib/dates'
@@ -90,15 +90,23 @@ export default function ChamadaPage() {
     if (selectedClass) loadData(selectedClass)
   }, [selectedClass, currentMonth])
 
+  const [transferLoading, setTransferLoading] = useState(false)
+
   useEffect(() => {
-    if (selectedClass) {
-      const key = `chamada_transferred_${selectedClass}`
-      try {
-        const saved = JSON.parse(localStorage.getItem(key) || '{}')
-        setTransferredDate(saved)
-      } catch { setTransferredDate({}) }
-    }
+    if (selectedClass) loadTransfers(selectedClass)
   }, [selectedClass])
+
+  async function loadTransfers(classId: string) {
+    setTransferLoading(true)
+    try {
+      const data = await getTransfers(classId)
+      setTransferredDate(data)
+    } catch {
+      toast('Erro ao carregar transferências', 'error')
+    } finally {
+      setTransferLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (selectedClass) {
@@ -192,6 +200,9 @@ export default function ChamadaPage() {
     if (transferDateInput) {
       setTransferredDate(prev => ({ ...prev, [studentId]: transferDateInput }))
       toast('Aluno marcado como transferido', 'info')
+      saveTransferDB(selectedClass, studentId, transferDateInput).catch(() => {
+        toast('Erro ao salvar transferência no servidor', 'error')
+      })
     }
     setTransferMenu(null)
   }
@@ -204,6 +215,9 @@ export default function ChamadaPage() {
     })
     setTransferMenu(null)
     toast('Aluno restaurado', 'info')
+    removeTransferDB(selectedClass, studentId).catch(() => {
+      toast('Erro ao remover transferência no servidor', 'error')
+    })
   }
 
   function openDayMenu(date: string, e: React.MouseEvent | React.TouchEvent) {

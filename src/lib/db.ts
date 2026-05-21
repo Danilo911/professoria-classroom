@@ -82,6 +82,42 @@ export async function getClassStudents(classId: string): Promise<Student[]> {
   return result
 }
 
+export async function getTransfers(classId: string): Promise<Record<string, string>> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('enrollments')
+    .select('student_id, transferred_at')
+    .eq('class_id', classId)
+    .eq('status', 'active')
+    .not('transferred_at', 'is', null)
+
+  const result: Record<string, string> = {}
+  data?.forEach((e: any) => {
+    if (e.transferred_at) result[e.student_id] = e.transferred_at
+  })
+  return result
+}
+
+export async function saveTransfer(classId: string, studentId: string, date: string) {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('enrollments')
+    .update({ transferred_at: date })
+    .eq('class_id', classId)
+    .eq('student_id', studentId)
+  if (error) throw error
+}
+
+export async function removeTransfer(classId: string, studentId: string) {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('enrollments')
+    .update({ transferred_at: null })
+    .eq('class_id', classId)
+    .eq('student_id', studentId)
+  if (error) throw error
+}
+
 export async function addStudent(classId: string, fullName: string): Promise<Student> {
   const supabase = createClient()
   const { data: student, error: studentError } = await supabase
