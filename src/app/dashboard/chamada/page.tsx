@@ -87,7 +87,12 @@ export default function ChamadaPage() {
   }, [])
 
   useEffect(() => {
-    if (selectedClass) loadData(selectedClass)
+    if (selectedClass) {
+      loadData(selectedClass).catch(() => {
+        setLoading(false)
+        toast('Erro ao carregar dados da chamada', 'error')
+      })
+    }
   }, [selectedClass, currentMonth])
 
   const [transferLoading, setTransferLoading] = useState(false)
@@ -190,7 +195,10 @@ export default function ChamadaPage() {
   function openTransferMenu(studentId: string, e: React.MouseEvent | React.TouchEvent) {
     e.stopPropagation()
     const rect = (e.target as HTMLElement).getBoundingClientRect()
-    setTransferMenu({ studentId, x: rect.left, y: rect.bottom + 4 })
+    const popupH = 160
+    const top = rect.bottom + 4
+    const finalTop = top + popupH > window.innerHeight ? Math.max(8, rect.top - popupH) : top
+    setTransferMenu({ studentId, x: rect.left, y: finalTop })
     setTransferDateInput(transferredDate[studentId] || today)
   }
 
@@ -225,7 +233,10 @@ export default function ChamadaPage() {
     setDayMenuType(existing?.type || 'holiday')
     setDayMenuDescription(existing?.description || '')
     const rect = (e.target as HTMLElement).getBoundingClientRect()
-    setDayMenu({ date, x: rect.left, y: rect.bottom + 4 })
+    const popupH = 380
+    const top = rect.bottom + 4
+    const finalTop = top + popupH > window.innerHeight ? Math.max(8, rect.top - popupH) : top
+    setDayMenu({ date, x: rect.left, y: finalTop })
   }
 
   function handleSetSpecialDay() {
@@ -714,7 +725,7 @@ export default function ChamadaPage() {
           position: 'fixed', left: Math.min(dayMenu.x, window.innerWidth - 260), top: dayMenu.y,
           background: 'var(--bg-primary)', border: '1px solid var(--border)',
           borderRadius: 8, padding: 12, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          minWidth: 240, maxWidth: 280,
+          minWidth: 240, maxWidth: 280, maxHeight: '90vh', overflowY: 'auto',
         }}>
           <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
             {formatDateBR(dayMenu.date)}
@@ -765,7 +776,7 @@ export default function ChamadaPage() {
           position: 'fixed', left: transferMenu.x, top: transferMenu.y,
           background: 'var(--bg-primary)', border: '1px solid var(--border)',
           borderRadius: 8, padding: 12, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          minWidth: 220,
+          minWidth: 220, maxHeight: '90vh', overflowY: 'auto',
         }}>
           <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
             {students.find(s => s.id === transferMenu.studentId)?.full_name}
