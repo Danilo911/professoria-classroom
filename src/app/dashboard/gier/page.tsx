@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Upload, Sparkles, Copy, Check, Pencil, Save, ExternalLink } from 'lucide-react'
+import { Upload, Sparkles, Copy, Check, Pencil, Save, ExternalLink, Clock } from 'lucide-react'
 import { useToast } from '@/lib/toast'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { MicButton } from '@/components/ui/MicButton'
@@ -165,9 +165,14 @@ export default function GierPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, marginBottom: 4 }}>Gerador GIER</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Envie uma atividade e a IA gera a descrição para o GIER</p>
+      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 24, marginBottom: 4 }}>Gerador GIER</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Envie uma atividade e a IA gera a descrição para o GIER</p>
+        </div>
+        <a href="/dashboard/gier/historico">
+          <button className="btn btn-secondary btn-sm"><Clock size={16} /> Histórico</button>
+        </a>
       </div>
 
       <div style={{
@@ -323,7 +328,7 @@ export default function GierPage() {
                   </div>
                 </div>
                 <button onClick={handleSave} className="btn btn-primary" disabled={saving} style={{ width: '100%' }}>
-                  {saving ? <><span className="spinner" /> Salvando...</> : <><Save size={16} /> Salvar no banco</>}
+                  {saving ? <><span className="spinner" /> Salvando...</> : <><Save size={16} /> Salvar</>}
                 </button>
               </div>
             </div>
