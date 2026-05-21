@@ -16,7 +16,7 @@ export default function GierPage() {
   const [descricao, setDescricao] = useState('')
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<{ text: string; component: string; skill: string; description: string } | null>(null)
+  const [result, setResult] = useState<{ text: string; component: string; ute: string; saber: string; apr: string; description: string } | null>(null)
   const [editando, setEditando] = useState(false)
   const [descEditavel, setDescEditavel] = useState('')
   const [copiado, setCopiado] = useState(false)
@@ -101,7 +101,9 @@ export default function GierPage() {
       setResult({
         text: data.extractedText || 'Texto extraído com sucesso',
         component: data.component,
-        skill: data.skill,
+        ute: data.ute,
+        saber: data.saber,
+        apr: data.apr,
         description: data.description,
       })
       setDescEditavel(data.description)
@@ -152,8 +154,10 @@ export default function GierPage() {
         ocr_extracted_text: result.text,
         ai_interpretation: {
           component: result.component,
-          skill_code: result.skill,
-          skill_description: result.description,
+          ute: result.ute,
+          saber: result.saber,
+          apr: result.apr,
+          description: editando ? descEditavel : result.description,
         },
         activity_date: activityDate,
       })
@@ -274,78 +278,104 @@ export default function GierPage() {
 
         {/* Result */}
         {result && (
-          <div className="card" style={{ padding: 24 }}>
-            <h3 style={{ fontSize: 16, marginBottom: 16, fontWeight: 600 }}>Resultado da Análise</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Texto Extraído</label>
-                <p style={{ fontSize: 13, background: 'var(--bg-secondary)', padding: 12, borderRadius: 'var(--radius-md)', marginTop: 6, lineHeight: 1.5 }}>{result.text}</p>
-              </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Componente Curricular</label>
-                <p style={{ fontSize: 14, fontWeight: 500, marginTop: 4 }}>{result.component}</p>
-              </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Habilidade QSN</label>
-                <p style={{ fontSize: 14, marginTop: 4 }}>{result.skill}</p>
-              </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Descrição para GIER</label>
-                {editando ? (
-                  <textarea
-                    className="input"
-                    value={descEditavel}
-                    onChange={e => setDescEditavel(e.target.value)}
-                    style={{ minHeight: 150, fontSize: 14, lineHeight: 1.6, padding: 12, marginTop: 6, resize: 'vertical', fontFamily: 'inherit' }}
-                  />
-                ) : (
-                  <div style={{ background: 'var(--bg-secondary)', padding: 16, borderRadius: 'var(--radius-md)', marginTop: 6, border: '1px solid var(--border)', fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{result.description}</div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                {editando ? (
-                  <>
-                    <button onClick={handleCancelarEdicao} className="btn btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-                    <button onClick={handleSalvarEdicao} className="btn btn-primary" style={{ flex: 1 }}><Save size={16} /> Salvar</button>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={handleEditar} className="btn btn-secondary" style={{ flex: 1 }}><Pencil size={16} /> Editar</button>
-                    <button onClick={handleCopiar} className="btn btn-primary" style={{ flex: 1 }}>
-                      {copiado ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar descrição</>}
-                    </button>
-                  </>
-                )}
-              </div>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ background: 'var(--primary)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Sparkles size={20} color="white" />
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: 'white', margin: 0 }}>Resultado da Análise</h3>
+            </div>
 
-              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+            {/* Texto Extraído */}
+            <div style={{ padding: '16px 24px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Texto Extraído</label>
+              <p style={{ fontSize: 13, lineHeight: 1.6, marginTop: 6, whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{result.text}</p>
+            </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 160 }}>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Turma</label>
-                    {classes.length <= 1 && selectedClassId ? (
-                      <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)', padding: '8px 0', display: 'block' }}>
-                        {classes.find(c => c.id === selectedClassId)?.name}
-                      </span>
-                    ) : (
-                      <select className="input" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} style={{ fontSize: 16, minHeight: 44 }}>
-                        <option value="">Selecione...</option>
-                        {classes.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 140 }}>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Data da atividade</label>
-                    <input type="date" className="input" value={activityDate} onChange={e => setActivityDate(e.target.value)} style={{ fontSize: 16, minHeight: 44 }} />
-                  </div>
+            {/* Card: Componente + UTE + SABER + APR */}
+            <div style={{ margin: '16px 24px', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border)' }}>
+              {/* Componente Curricular */}
+              <div style={{ background: 'var(--primary-50)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: 1 }}>Componente Curricular</span>
+                <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--primary)', margin: '4px 0 0 0' }}>{result.component}</p>
+              </div>
+              {/* UTE */}
+              <div style={{ background: 'var(--bg-surface)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Unidade Temática (UTE)</span>
+                <p style={{ fontSize: 14, fontWeight: 500, margin: '4px 0 0 0', lineHeight: 1.5 }}>{result.ute}</p>
+              </div>
+              {/* SABER */}
+              <div style={{ background: 'var(--bg-surface)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Saber</span>
+                <p style={{ fontSize: 14, margin: '4px 0 0 0', lineHeight: 1.5, color: 'var(--text-secondary)' }}>{result.saber}</p>
+              </div>
+              {/* APRENDIZAGEM */}
+              <div style={{ background: 'var(--bg-surface)', padding: '12px 16px' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Aprendizagem</span>
+                <p style={{ fontSize: 14, margin: '4px 0 0 0', lineHeight: 1.5, color: 'var(--text-secondary)' }}>{result.apr}</p>
+              </div>
+            </div>
+
+            {/* Descrição para GIER */}
+            <div style={{ padding: '0 24px 16px' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Descrição para GIER</label>
+              {editando ? (
+                <textarea
+                  className="input"
+                  value={descEditavel}
+                  onChange={e => setDescEditavel(e.target.value)}
+                  style={{ minHeight: 150, fontSize: 14, lineHeight: 1.6, padding: 12, marginTop: 6, resize: 'vertical', fontFamily: 'inherit' }}
+                />
+              ) : (
+                <div style={{ background: 'var(--bg-secondary)', padding: 16, borderRadius: 'var(--radius-md)', marginTop: 6, border: '1px solid var(--border)', fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{result.description}</div>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ padding: '0 24px 24px', display: 'flex', gap: 12 }}>
+              {editando ? (
+                <>
+                  <button onClick={handleCancelarEdicao} className="btn btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+                  <button onClick={handleSalvarEdicao} className="btn btn-primary" style={{ flex: 1 }}><Save size={16} /> Salvar</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={handleEditar} className="btn btn-secondary" style={{ flex: 1 }}><Pencil size={16} /> Editar</button>
+                  <button onClick={handleCopiar} className="btn btn-primary" style={{ flex: 1 }}>
+                    {copiado ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar descrição</>}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Divider */}
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0 24px' }} />
+
+            {/* Turma + Data + Salvar */}
+            <div style={{ padding: '16px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Turma</label>
+                  {classes.length <= 1 && selectedClassId ? (
+                    <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)', padding: '8px 0', display: 'block' }}>
+                      {classes.find(c => c.id === selectedClassId)?.name}
+                    </span>
+                  ) : (
+                    <select className="input" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} style={{ fontSize: 16, minHeight: 44 }}>
+                      <option value="">Selecione...</option>
+                      {classes.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
-                <button onClick={handleSave} className="btn btn-primary" disabled={saving} style={{ width: '100%' }}>
-                  {saving ? <><span className="spinner" /> Salvando...</> : <><Save size={16} /> Salvar</>}
-                </button>
+                <div style={{ flex: 1, minWidth: 140 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Data da atividade</label>
+                  <input type="date" className="input" value={activityDate} onChange={e => setActivityDate(e.target.value)} style={{ fontSize: 16, minHeight: 44 }} />
+                </div>
               </div>
+              <button onClick={handleSave} className="btn btn-primary" disabled={saving} style={{ width: '100%' }}>
+                {saving ? <><span className="spinner" /> Salvando...</> : <><Save size={16} /> Salvar</>}
+              </button>
             </div>
           </div>
         )}

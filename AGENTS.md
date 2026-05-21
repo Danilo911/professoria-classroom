@@ -11,3 +11,56 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **Nunca** use `new Date().toISOString().slice(0, 10)` — sempre `getTodayISO()`.
 - **Nunca** use `new Date(dateStr + 'T12:00:00')` para exibir — sempre `formatDateBR()`.
 - Novas funções que trabalhem com data/hora devem usar essas funções de `src/lib/dates.ts`.
+
+# Dados Curriculares (QSN / GIER)
+
+## Estrutura dos dados
+- **Fonte primária:** `qsn_curriculo_completo.xlsx` (raiz do projeto) — 2.584 registros, 11 disciplinas, 1 planilha única com abas por componente
+- **Dados brutos do PDF:** `tmp-fundamental.txt` (texto extraído do `Ensino Fundamental_digital.pdf`)
+- **Pasta de planilhas individuais:** `planilhas_componentes/` (11 arquivos .xlsx, um por disciplina)
+- **CSV estruturado:** `supabase/qsn_fundamental_estruturado.csv`
+
+## Hierarquia dos dados
+```
+ComponenteCurricular → Eixo → UTE → SABER → APR
+                                              └── Ciclo (1º-5º Ano, atribuído heurística modulo-4)
+```
+
+## Componentes extraídos do QSN Fundamental
+| Componente | Registros (c/ anos) |
+|---|---|
+| Libras | 770 |
+| Matemática | 278 |
+| Língua Portuguesa | 268 |
+| Cultura de Paz | 250 |
+| Arte | 244 |
+| Inglês | 202 |
+| Educação Física | 152 |
+| Ciências | 146 |
+| Educação Digital | 122 |
+| História | 86 |
+| Geografia | 66 |
+
+## Scripts relevantes
+- `scripts/parse-qsn-structured.ts` — parser heurístico: extrai Componente→UTE→SABER→APR do `tmp-fundamental.txt`
+- `scripts/gerar-excel-componentes.ts` — gera 1 Excel por componente (igual ao GIER Português)
+- `scripts/gerar-planilha-unificada.ts` — gera `qsn_curriculo_completo.xlsx` com todas disciplinas + anos (opção C)
+- `scripts/parse-qsn.ts` — parser original (SABER+APR combinados, NÃO usar mais)
+- `scripts/extract-qsn.ts` — parser via Gemini (qualidade baixa, NÃO usar)
+
+## Extração GIER (Língua Portuguesa 1º Ano)
+- Fonte: `C:\Users\Administrator\Desktop\dropdowns do gier portugues.docx`
+- Planilha final: `C:\Users\Administrator\Desktop\gier_portugues_dropdowns.xlsx` (248 APRs, 6 UTEs)
+- Processo de extração: abrir GIER no navegador, F12 → Console, executar script para capturar dropdowns, colar resultados no docx
+
+## Mapeamento QSN → GIER
+As heurísticas de ano são aproximadas. Para dados exatos ano a ano, extrair do GIER diretamente (processo manual via F12).
+
+## GIER API Response (Gerador de GIER)
+- **Interface:** `GeminiGierResponse` em `src/lib/gemini.ts`
+- **Campos:** `{ extractedText, component, ute, saber, apr, description }`
+- **Prompt da IA:** Pede para identificar: texto extraído, componente curricular, UTE (Unidade Temática), SABER, APR (Aprendizagem específica), e descrição pedagógica para GIER
+- **Grammar check:** Todos os campos de texto passam por LanguageTool
+- **Frontend:** Layout em cartão com: header colorido, texto extraído, card com Componente/UTE/SABER/APR, descrição GIER editável
+- **Arquivos:** `src/app/dashboard/gier/page.tsx` (autenticado), `src/app/gier/page.tsx` (público)
+- **Database:** `ai_interpretation` armazena `{ component, ute, saber, apr, description, activity_type }`

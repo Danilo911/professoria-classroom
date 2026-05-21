@@ -33,7 +33,7 @@ export default function GierPublicPage() {
   const [descricao, setDescricao] = useState('')
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<{ text: string; component: string; skill: string; description: string } | null>(null)
+  const [result, setResult] = useState<{ text: string; component: string; ute: string; saber: string; apr: string; description: string } | null>(null)
   const [editando, setEditando] = useState(false)
   const [descEditavel, setDescEditavel] = useState('')
   const [copiado, setCopiado] = useState(false)
@@ -117,7 +117,9 @@ export default function GierPublicPage() {
       setResult({
         text: data.extractedText || 'Texto extraído com sucesso',
         component: data.component,
-        skill: data.skill,
+        ute: data.ute,
+        saber: data.saber,
+        apr: data.apr,
         description: data.description,
       })
       setDescEditavel(data.description)
@@ -299,65 +301,85 @@ export default function GierPublicPage() {
 
           {/* Result */}
           {result && (
-            <div className="card" style={{ padding: 24 }}>
-              <h3 style={{ fontSize: 16, marginBottom: 16, fontWeight: 600 }}>Resultado da Análise</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Texto Extraído</label>
-                  <p style={{ fontSize: 13, background: 'var(--bg-secondary)', padding: 12, borderRadius: 'var(--radius-md)', marginTop: 6, lineHeight: 1.5 }}>{result.text}</p>
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Componente Curricular</label>
-                  <p style={{ fontSize: 14, fontWeight: 500, marginTop: 4 }}>{result.component}</p>
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Habilidade QSN</label>
-                  <p style={{ fontSize: 14, marginTop: 4 }}>{result.skill}</p>
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Descrição para GIER</label>
-                  {editando ? (
-                    <textarea
-                      className="input"
-                      value={descEditavel}
-                      onChange={e => setDescEditavel(e.target.value)}
-                      style={{ minHeight: 150, fontSize: 14, lineHeight: 1.6, padding: 12, marginTop: 6, resize: 'vertical', fontFamily: 'inherit' }}
-                    />
-                  ) : (
-                    <div style={{ background: 'var(--bg-secondary)', padding: 16, borderRadius: 'var(--radius-md)', marginTop: 6, border: '1px solid var(--border)', fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{result.description}</div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  {editando ? (
-                    <>
-                      <button onClick={handleCancelarEdicao} className="btn btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-                      <button onClick={handleSalvarEdicao} className="btn btn-primary" style={{ flex: 1 }}><Save size={16} /> Salvar</button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={handleEditar} className="btn btn-secondary" style={{ flex: 1 }}><Pencil size={16} /> Editar</button>
-                      <button onClick={handleCopiar} className="btn btn-primary" style={{ flex: 1 }}>
-                        {copiado ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar descrição</>}
-                      </button>
-                    </>
-                  )}
-                </div>
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{ background: 'var(--primary)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Sparkles size={20} color="white" />
+                <h3 style={{ fontSize: 16, fontWeight: 600, color: 'white', margin: 0 }}>Resultado da Análise</h3>
+              </div>
 
-                {/* CTA for account */}
-                <div style={{
-                  marginTop: 8, padding: 16, background: 'var(--primary-50)',
-                  borderRadius: 'var(--radius-lg)', textAlign: 'center',
-                  border: '1px solid var(--primary-100)',
-                }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary)', marginBottom: 8 }}>
-                    Gostou? Salve seus GIERs com uma conta gratuita!
-                  </p>
-                  <a href="/login">
-                    <button className="btn btn-primary btn-sm">
-                      <LogIn size={14} /> Criar conta grátis
-                    </button>
-                  </a>
+              {/* Texto Extraído */}
+              <div style={{ padding: '16px 24px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Texto Extraído</label>
+                <p style={{ fontSize: 13, lineHeight: 1.6, marginTop: 6, whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{result.text}</p>
+              </div>
+
+              {/* Card: Componente + UTE + SABER + APR */}
+              <div style={{ margin: '16px 24px', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                {/* Componente Curricular */}
+                <div style={{ background: 'var(--primary-50)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: 1 }}>Componente Curricular</span>
+                  <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--primary)', margin: '4px 0 0 0' }}>{result.component}</p>
                 </div>
+                {/* UTE */}
+                <div style={{ background: 'var(--bg-surface)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Unidade Temática (UTE)</span>
+                  <p style={{ fontSize: 14, fontWeight: 500, margin: '4px 0 0 0', lineHeight: 1.5 }}>{result.ute}</p>
+                </div>
+                {/* SABER */}
+                <div style={{ background: 'var(--bg-surface)', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Saber</span>
+                  <p style={{ fontSize: 14, margin: '4px 0 0 0', lineHeight: 1.5, color: 'var(--text-secondary)' }}>{result.saber}</p>
+                </div>
+                {/* APRENDIZAGEM */}
+                <div style={{ background: 'var(--bg-surface)', padding: '12px 16px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Aprendizagem</span>
+                  <p style={{ fontSize: 14, margin: '4px 0 0 0', lineHeight: 1.5, color: 'var(--text-secondary)' }}>{result.apr}</p>
+                </div>
+              </div>
+
+              {/* Descrição para GIER */}
+              <div style={{ padding: '0 24px 16px' }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Descrição para GIER</label>
+                {editando ? (
+                  <textarea
+                    className="input"
+                    value={descEditavel}
+                    onChange={e => setDescEditavel(e.target.value)}
+                    style={{ minHeight: 150, fontSize: 14, lineHeight: 1.6, padding: 12, marginTop: 6, resize: 'vertical', fontFamily: 'inherit' }}
+                  />
+                ) : (
+                  <div style={{ background: 'var(--bg-secondary)', padding: 16, borderRadius: 'var(--radius-md)', marginTop: 6, border: '1px solid var(--border)', fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{result.description}</div>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ padding: '0 24px 24px', display: 'flex', gap: 12 }}>
+                {editando ? (
+                  <>
+                    <button onClick={handleCancelarEdicao} className="btn btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+                    <button onClick={handleSalvarEdicao} className="btn btn-primary" style={{ flex: 1 }}><Save size={16} /> Salvar</button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={handleEditar} className="btn btn-secondary" style={{ flex: 1 }}><Pencil size={16} /> Editar</button>
+                    <button onClick={handleCopiar} className="btn btn-primary" style={{ flex: 1 }}>
+                      {copiado ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar descrição</>}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* CTA for account */}
+              <div style={{ margin: '0 24px 24px', padding: 16, background: 'var(--primary-50)', borderRadius: 'var(--radius-lg)', textAlign: 'center', border: '1px solid var(--primary-100)' }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary)', marginBottom: 8 }}>
+                  Gostou? Salve seus GIERs com uma conta gratuita!
+                </p>
+                <a href="/login">
+                  <button className="btn btn-primary btn-sm">
+                    <LogIn size={14} /> Criar conta grátis
+                  </button>
+                </a>
               </div>
             </div>
           )}

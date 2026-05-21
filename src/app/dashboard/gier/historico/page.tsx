@@ -17,8 +17,10 @@ interface HistoryItem {
   status: string
   ai_interpretation?: {
     component: string
-    skill_code: string
-    skill_description: string
+    ute: string
+    saber: string
+    apr: string
+    description: string
     activity_type?: string
   }
 }

@@ -57,10 +57,22 @@ export async function POST(request: NextRequest) {
 
     const result = await analyzeGier({ ...body, qsnSkills })
 
-    // Revisa a descrição GIER com LanguageTool
+    // Revisa os campos de texto com LanguageTool
     if (result.description) {
       const { corrected } = await checkGrammar(result.description)
       result.description = corrected
+    }
+    if (result.ute) {
+      const { corrected } = await checkGrammar(result.ute)
+      result.ute = corrected
+    }
+    if (result.saber) {
+      const { corrected } = await checkGrammar(result.saber)
+      result.saber = corrected
+    }
+    if (result.apr) {
+      const { corrected } = await checkGrammar(result.apr)
+      result.apr = corrected
     }
 
     return NextResponse.json(result)
