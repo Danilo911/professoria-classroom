@@ -176,29 +176,29 @@ export async function generateReport(request: GeminiReportRequest): Promise<{ co
 
   let lastError: Error | null = null
 
-  // Tenta Gemini primeiro
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      const text = await generateWithGemini(prompt)
-      if (text) return { content: text, provider: 'gemini' }
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('Gemini falhou, tentando Groq:', lastError.message)
-    }
-  }
-
-  // Fallback para Groq
+  // Tenta Groq primeiro
   if (process.env.GROQ_API_KEY) {
     try {
       const text = await generateWithGroq(prompt)
       if (text) return { content: text, provider: 'groq' }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      console.warn('Groq falhou, tentando Gemini:', lastError.message)
+    }
+  }
+
+  // Fallback para Gemini
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const text = await generateWithGemini(prompt)
+      if (text) return { content: text, provider: 'gemini' }
     } catch (err) {
       throw err
     }
   }
 
   if (lastError) throw lastError
-  throw new Error('Nenhuma chave de API configurada (GEMINI_API_KEY ou GROQ_API_KEY)')
+  throw new Error('Nenhuma chave de API configurada (GROQ_API_KEY ou GEMINI_API_KEY)')
 }
 
 const GIER_PROMPT_BASE = 'Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade (extraia da imagem se houver), 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente, 4) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.'
@@ -305,7 +305,17 @@ function parseGierResponse(text: string): GeminiGierResponse {
 export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGierResponse> {
   let lastError: Error | null = null
 
-  // Tenta Gemini primeiro
+  // Tenta Groq primeiro
+  if (process.env.GROQ_API_KEY) {
+    try {
+      return await analisarComGroqGier(request)
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      console.warn('Groq GIER falhou, tentando Gemini:', lastError.message)
+    }
+  }
+
+  // Fallback para Gemini
   if (process.env.GEMINI_API_KEY) {
     try {
       let contents: string | Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = ''
@@ -330,20 +340,10 @@ export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGie
 
       return parseGierResponse(response.text || '{}')
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('Gemini GIER falhou, tentando Groq:', lastError.message)
-    }
-  }
-
-  // Fallback para Groq
-  if (process.env.GROQ_API_KEY) {
-    try {
-      return await analisarComGroqGier(request)
-    } catch (err) {
       throw err
     }
   }
 
   if (lastError) throw lastError
-  throw new Error('Nenhuma chave de API configurada (GEMINI_API_KEY ou GROQ_API_KEY)')
+  throw new Error('Nenhuma chave de API configurada (GROQ_API_KEY ou GEMINI_API_KEY)')
 }
