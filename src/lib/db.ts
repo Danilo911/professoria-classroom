@@ -78,7 +78,10 @@ export async function getClassStudents(classId: string): Promise<Student[]> {
     .eq('status', 'active')
 
   const result: Student[] = []
-  data?.forEach((e: any) => { if (e.student) result.push(e.student) })
+  data?.forEach((e: Record<string, unknown>) => {
+    const student = Array.isArray(e.student) ? e.student[0] : e.student
+    if (student) result.push(student as Student)
+  })
   return result
 }
 
@@ -92,8 +95,8 @@ export async function getTransfers(classId: string): Promise<Record<string, stri
     .not('transferred_at', 'is', null)
 
   const result: Record<string, string> = {}
-  data?.forEach((e: any) => {
-    if (e.transferred_at) result[e.student_id] = e.transferred_at
+  data?.forEach((e: Record<string, unknown>) => {
+    if (e.transferred_at && e.student_id) result[e.student_id as string] = e.transferred_at as string
   })
   return result
 }
@@ -471,7 +474,7 @@ export async function getAIReports(filters: { class_id?: string; student_id?: st
 }
 
 export async function saveAIReport(input: {
-  class_id?: string; student_id?: string; type: string; content: string; prompt_context?: any
+  class_id?: string; student_id?: string; type: string; content: string; prompt_context?: Record<string, unknown>
 }): Promise<AIReport> {
   const supabase = createClient()
   const userId = await getUserId()

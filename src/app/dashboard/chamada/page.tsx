@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Check, X, FileText, Minus, Calendar, XCircle, Umbrella, Users, Building, BookOpen } from 'lucide-react'
 import { getClassStudents, getSessionsByRange, createAttendanceSession, saveAttendanceRecords, completeSession, getClassHolidays, upsertHoliday, deleteHoliday, getTransfers, saveTransfer as saveTransferDB, removeTransfer as removeTransferDB } from '@/lib/db'
 import { getClasses } from '@/lib/db'
 import { useToast } from '@/lib/toast'
 import { getTodayISO, formatDateBR } from '@/lib/dates'
-import type { Student, Class, AttendanceSession } from '@/types'
+import { deepClone } from '@/lib/utils'
+import type { Student, Class, AttendanceSession, AttendanceRecord } from '@/types'
 
 type Status = 'present' | 'absent' | 'justified'
 
@@ -83,6 +84,9 @@ export default function ChamadaPage() {
       setClasses(data)
       if (data.length > 0) setSelectedClass(data[0].id)
       else setLoading(false)
+    }).catch(() => {
+      setLoading(false)
+      toast('Erro ao carregar turmas', 'error')
     })
   }, [])
 
@@ -166,7 +170,7 @@ export default function ChamadaPage() {
       }
     }
     setAttendance(map)
-    setLastSaved(JSON.parse(JSON.stringify(map)))
+    setLastSaved(deepClone(map))
     setLoading(false)
   }
 
@@ -325,7 +329,7 @@ export default function ChamadaPage() {
         }
       }
 
-      setLastSaved(JSON.parse(JSON.stringify(attendance)))
+      setLastSaved(deepClone(attendance))
       if (savedCount > 0) toast(`${savedCount} dia(s) salvo(s)`, 'success')
     } catch (err) {
       toast(err instanceof Error ? `Erro: ${err.message}` : 'Erro ao salvar faltas', 'error')
@@ -380,21 +384,20 @@ export default function ChamadaPage() {
   const cellColors: Record<Status, string> = { present: '#22c55e', absent: '#ef4444', justified: '#f59e0b' }
   const cellBg: Record<Status, string> = { present: '#22c55e15', absent: '#ef444415', justified: '#f59e0b15' }
 
-  const isFutureMonth = currentMonth.year > new Date().getFullYear() ||
-    (currentMonth.year === new Date().getFullYear() && currentMonth.month > new Date().getMonth())
-
-  // Last 5 working days (for mobile card view)
-  const last5Days = dates.filter(d => d <= today).slice(-5)
+  const isFutureMonth = useMemo(() => currentMonth.year > new Date().getFullYear() ||
+    (currentMonth.year === new Date().getFullYear() && currentMonth.month > new Date().getMonth()),
+  [currentMonth])
 
   // Mobile: reference date for 5-day view (defaults to today)
   const [mobileRefDate, setMobileRefDate] = useState(today)
-  const mobile5Days = dates.filter(d => d <= mobileRefDate).slice(-5)
+  const mobile5Days = useMemo(() => dates.filter(d => d <= mobileRefDate).slice(-5), [dates, mobileRefDate])
 
   if (loading) return <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>Carregando...</div>
 
-  const alerts = students
+  const alerts = useMemo(() => students
     .map(st => ({ student: st, alert: getBuscaAtivaAlert(st.id) }))
-    .filter(a => a.alert !== null)
+    .filter(a => a.alert !== null),
+  [students, dates, attendance, specialDays, transferredDate])
 
   return (
     <div>
@@ -414,7 +417,7 @@ export default function ChamadaPage() {
           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, position: 'relative' }} ref={monthPickerRef}>
-          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(-1)}><ChevronLeft size={16} /></button>
+          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(-1)} aria-label="Mês anterior"><ChevronLeft size={16} /></button>
           <span
             onClick={() => setShowMonthPicker(!showMonthPicker)}
             style={{ fontSize: 13, fontWeight: 600, minWidth: 100, textAlign: 'center', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, whiteSpace: 'nowrap' }}
@@ -423,7 +426,7 @@ export default function ChamadaPage() {
           >
             {MONTHS[currentMonth.month].slice(0, 3)} {currentMonth.year} ▾
           </span>
-          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(1)} disabled={isFutureMonth}><ChevronRight size={16} /></button>
+          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(1)} disabled={isFutureMonth} aria-label="Próximo mês"><ChevronRight size={16} /></button>
           {showMonthPicker && (
             <div style={{
               position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
@@ -565,6 +568,7 @@ export default function ChamadaPage() {
                             <button
                               onClick={() => !isFuture && !isTransfered && !isSpecialDay && cycleStatus(st.id, date)}
                               disabled={isTransfered || isSpecialDay}
+                              aria-label={isSpecialDay ? (sdInfo?.label || 'Dia especial') : isTransfered ? 'Transferido' : status === 'present' ? 'Presente' : status === 'absent' ? 'Falta' : 'Justificado'}
                               style={{
                                 width: '100%', height: 44, borderRadius: 6, border: 'none',
                                 background: isSpecialDay ? `${sdInfo?.color || '#3b82f6'}15` : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
@@ -667,6 +671,7 @@ export default function ChamadaPage() {
                             <button
                               onClick={() => !isFuture && !isTransfered && !isSpecialDay && cycleStatus(st.id, date)}
                               disabled={isTransfered || isSpecialDay}
+                              aria-label={isSpecialDay ? (sdInfo?.label || 'Dia especial') : isTransfered ? 'Transferido' : status === 'present' ? 'Presente' : status === 'absent' ? 'Falta' : 'Justificado'}
                               style={{
                                 width: 28, height: 28, borderRadius: 6, border: 'none',
                                 background: isSpecialDay ? `${sdInfo?.color || '#3b82f6'}15` : isTransfered ? 'var(--bg-secondary)' : cellBg[status as Status],
