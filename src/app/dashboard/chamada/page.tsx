@@ -384,20 +384,18 @@ export default function ChamadaPage() {
   const cellColors: Record<Status, string> = { present: '#22c55e', absent: '#ef4444', justified: '#f59e0b' }
   const cellBg: Record<Status, string> = { present: '#22c55e15', absent: '#ef444415', justified: '#f59e0b15' }
 
-  const isFutureMonth = useMemo(() => currentMonth.year > new Date().getFullYear() ||
-    (currentMonth.year === new Date().getFullYear() && currentMonth.month > new Date().getMonth()),
-  [currentMonth])
+  const isFutureMonth = currentMonth.year > new Date().getFullYear() ||
+    (currentMonth.year === new Date().getFullYear() && currentMonth.month > new Date().getMonth())
 
   // Mobile: reference date for 5-day view (defaults to today)
   const [mobileRefDate, setMobileRefDate] = useState(today)
-  const mobile5Days = useMemo(() => dates.filter(d => d <= mobileRefDate).slice(-5), [dates, mobileRefDate])
+  const mobile5Days = dates.filter(d => d <= mobileRefDate).slice(-5)
 
   if (loading) return <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>Carregando...</div>
 
-  const alerts = useMemo(() => students
+  const alerts = students
     .map(st => ({ student: st, alert: getBuscaAtivaAlert(st.id) }))
-    .filter(a => a.alert !== null),
-  [students, dates, attendance, specialDays, transferredDate])
+    .filter(a => a.alert !== null)
 
   return (
     <div>
