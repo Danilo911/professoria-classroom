@@ -602,10 +602,10 @@ export default function ChamadaPage() {
           {/* Desktop Table View (>768px) */}
           <div className="desktop-only">
             <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
-            <table style={{ borderCollapse: 'collapse', fontSize: 13, minWidth: 'max-content' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--bg-secondary)' }}>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 2, borderBottom: '2px solid var(--border)', minWidth: 180 }}>Aluno</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 2, borderBottom: '2px solid var(--border)', minWidth: 160 }}>Aluno</th>
                   {dates.map(date => {
                     const { day, date: dayNum } = formatDayHeader(date)
                     const isFuture = date > today
@@ -615,7 +615,7 @@ export default function ChamadaPage() {
                     return (
                       <th key={date} onClick={e => !isFuture && openDayMenu(date, e)} style={{
                         padding: '6px 4px', textAlign: 'center', fontWeight: 500, fontSize: 11,
-                        borderBottom: '2px solid var(--border)', minWidth: 44,
+                        borderBottom: '2px solid var(--border)', minWidth: 30,
                         background: sd ? `${sdInfo?.color || '#3b82f6'}20` : isToday ? 'var(--primary-light)' : 'var(--bg-secondary)',
                         color: isFuture ? 'var(--text-muted)' : sd ? (sdInfo?.color || '#3b82f6') : undefined,
                         cursor: isFuture ? 'default' : 'pointer',
@@ -626,9 +626,9 @@ export default function ChamadaPage() {
                       </th>
                     )
                   })}
-                  <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid var(--border)', background: 'var(--bg-secondary)', minWidth: 60 }}>Faltas</th>
-                  <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid var(--border)', background: 'var(--bg-secondary)', minWidth: 60 }}>Just.</th>
-                  <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid var(--border)', background: 'var(--bg-secondary)', minWidth: 60 }}>%</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid var(--border)', background: 'var(--bg-secondary)', minWidth: 50 }}>Faltas</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid var(--border)', background: 'var(--bg-secondary)', minWidth: 50 }}>Just.</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 600, borderBottom: '2px solid var(--border)', background: 'var(--bg-secondary)', minWidth: 50 }}>%</th>
                 </tr>
               </thead>
               <tbody>
