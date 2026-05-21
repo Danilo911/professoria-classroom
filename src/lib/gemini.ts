@@ -5,11 +5,12 @@ const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
 const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct'
 
 export interface GeminiReportRequest {
-  type: 'descriptive_report' | 'class_council' | 'parent_meeting' | 'pedagogical_suggestion'
+  type: 'descriptive_report' | 'class_council' | 'parent_meeting' | 'pedagogical_suggestion' | 'referral'
   studentName?: string
   className?: string
   period?: string
   observations?: string
+  referralType?: string
   qsnSkills?: { code: string; description: string; component: string; axis?: string; grade: string }[]
 }
 
@@ -58,10 +59,35 @@ const SYSTEM_PROMPTS = {
 - Materiais necessários
 - Adaptações para alunos com necessidades especiais
 - Critérios de avaliação`,
+
+  referral: `Você é um assistente pedagógico especializado em educação inclusiva. Gere um documento de encaminhamento profissional e empático, em português do Brasil. O texto deve:
+- Descrever os comportamentos observados e dificuldades do aluno em sala de aula
+- Relacionar as observações ao tipo específico de encaminhamento solicitado
+- Incluir exemplos concretos de situações do dia a dia escolar
+- Mencionar estratégias pedagógicas já utilizadas em sala
+- Ser claro e objetivo para o profissional de saúde que receberá o encaminhamento
+- Ter entre 2-4 parágrafos
+- Usar linguagem profissional e respeitosa`,
 }
 
 function buildReportPrompt(request: GeminiReportRequest): string {
   const systemPrompt = SYSTEM_PROMPTS[request.type]
+
+  let referralSection = ''
+  if (request.type === 'referral' && request.referralType) {
+    const labels: Record<string, string> = {
+      tea: 'Suspeita de TEA (Transtorno do Espectro Autista)',
+      tod: 'Suspeita de TOD (Transtorno Opositivo-Desafiador)',
+      tdah: 'Suspeita de TDAH (Déficit de Atenção / Hiperatividade)',
+      fono: 'Avaliação Fonoaudiológica',
+      dentista: 'Avaliação Odontológica',
+      oftalmo: 'Avaliação Oftalmológica',
+      psicologo: 'Avaliação Psicológica',
+      multi: 'Equipe Multidisciplinar',
+      outro: 'Outro encaminhamento',
+    }
+    referralSection = `\n\nTipo de encaminhamento: ${labels[request.referralType] || request.referralType}`
+  }
 
   let qsnSection = ''
   if (request.qsnSkills && request.qsnSkills.length > 0) {
@@ -87,7 +113,7 @@ Contexto:
 ${request.studentName ? `- Aluno: ${request.studentName}` : ''}
 ${request.className ? `- Turma: ${request.className}` : ''}
 ${request.period ? `- Período: ${request.period}` : ''}
-${request.observations ? `- Observações adicionais: ${request.observations}` : ''}${qsnSection}
+${request.observations ? `- Observações adicionais: ${request.observations}` : ''}${referralSection}${qsnSection}
 
 Gere o relatório solicitado seguindo as diretrizes acima.`
 

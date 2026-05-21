@@ -1,0 +1,47 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { generateReport, type GeminiReportRequest } from '@/lib/gemini'
+
+export async function POST(request: NextRequest) {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll() {},
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  }
+
+  try {
+    const body: GeminiReportRequest & { classId?: string; referralType: string } = await request.json()
+
+    if (!body.studentName || !body.referralType) {
+      return NextResponse.json({ error: 'Nome do aluno e tipo de encaminhamento são obrigatórios' }, { status: 400 })
+    }
+
+    const { content, provider } = await generateReport({
+      type: 'referral',
+      studentName: body.studentName,
+      className: body.className,
+      observations: body.observations,
+      referralType: body.referralType,
+    })
+
+    return NextResponse.json({ content, provider })
+  } catch (error) {
+    console.error('Referral error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Erro ao gerar encaminhamento' },
+      { status: 500 }
+    )
+  }
+}

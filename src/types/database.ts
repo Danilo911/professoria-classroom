@@ -11,7 +11,19 @@ export type AttendanceStatus = 'present' | 'absent' | 'late' | 'justified'
 export type DiaryEntryType = 'general' | 'activity' | 'incident' | 'achievement'
 export type ObservationCategory = 'behavior' | 'difficulty' | 'evolution' | 'intervention' | 'general'
 export type ObservationSeverity = 'info' | 'attention' | 'critical'
-export type AIReportType = 'descriptive_report' | 'class_council' | 'parent_meeting' | 'pedagogical_suggestion' | 'progress_summary'
+export type AIReportType = 'descriptive_report' | 'class_council' | 'parent_meeting' | 'pedagogical_suggestion' | 'progress_summary' | 'referral'
+
+export const REFERRAL_TYPES = [
+  { key: 'tea', label: 'Suspeita de TEA (Transtorno do Espectro Autista)', icon: '🧩' },
+  { key: 'tod', label: 'Suspeita de TOD (Transtorno Opositivo-Desafiador)', icon: '⚡' },
+  { key: 'tdah', label: 'Suspeita de TDAH (Déficit de Atenção / Hiperatividade)', icon: '🎯' },
+  { key: 'fono', label: 'Avaliação Fonoaudiológica', icon: '🗣️' },
+  { key: 'dentista', label: 'Avaliação Odontológica', icon: '🦷' },
+  { key: 'oftalmo', label: 'Avaliação Oftalmológica', icon: '👁️' },
+  { key: 'psicologo', label: 'Avaliação Psicológica', icon: '🧠' },
+  { key: 'multi', label: 'Equipe Multidisciplinar', icon: '👥' },
+  { key: 'outro', label: 'Outro encaminhamento', icon: '📋' },
+] as const
 export type ReportStatus = 'draft' | 'reviewed' | 'final'
 export type GierFileType = 'image' | 'pdf' | 'docx'
 export type GierStatus = 'processing' | 'completed' | 'error' | 'reviewed'

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, Users, ClipboardCheck, BookOpen,
   Sparkles, FileText, Calendar, Settings, LogOut,
-  Menu, X, ChevronLeft, MoreHorizontal,
+  Menu, X, ChevronLeft, MoreHorizontal, Stethoscope,
 } from 'lucide-react'
 
 const navItems = [
@@ -16,6 +16,7 @@ const navItems = [
   { href: '/dashboard/chamada', label: 'Chamada', icon: ClipboardCheck },
   { href: '/dashboard/diario', label: 'Diário', icon: BookOpen },
   { href: '/dashboard/ia', label: 'IA Pedagógica', icon: Sparkles },
+  { href: '/dashboard/encaminhamento', label: 'Encaminhamento', icon: Stethoscope },
   { href: '/dashboard/gier', label: 'Gerador GIER', icon: FileText },
   { href: '/dashboard/planejamento', label: 'Planejamento', icon: Calendar },
 ]
