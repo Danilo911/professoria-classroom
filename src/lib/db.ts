@@ -76,6 +76,7 @@ export async function getClassStudents(classId: string): Promise<Student[]> {
     .select('student:students(*)')
     .eq('class_id', classId)
     .eq('status', 'active')
+    .order('enrolled_at')
 
   const result: Student[] = []
   data?.forEach((e: Record<string, unknown>) => {
