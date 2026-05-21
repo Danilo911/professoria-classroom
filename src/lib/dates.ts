@@ -1,6 +1,6 @@
 const DEFAULT_TZ = 'America/Sao_Paulo'
 
-function getTimezone(): string {
+export function getBrasiliaTZ(): string {
   if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_TIMEZONE) {
     return process.env.NEXT_PUBLIC_TIMEZONE
   }
@@ -9,7 +9,7 @@ function getTimezone(): string {
 
 export function getTodayISO(): string {
   const now = new Date()
-  const tz = getTimezone()
+  const tz = getBrasiliaTZ()
   const str = now.toLocaleString('en-US', { timeZone: tz })
   const [datePart] = str.split(',')
   const [month, day, year] = datePart.split('/').map(Number)
@@ -17,6 +17,17 @@ export function getTodayISO(): string {
 }
 
 export function formatDateBR(dateStr: string): string {
+  if (!dateStr) return ''
   const d = new Date(dateStr + 'T12:00:00')
   return d.toLocaleDateString('pt-BR')
+}
+
+export function formatDateTimeBR(isoStr: string): string {
+  if (!isoStr) return ''
+  const d = new Date(isoStr)
+  return d.toLocaleDateString('pt-BR', {
+    timeZone: getBrasiliaTZ(),
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
 }

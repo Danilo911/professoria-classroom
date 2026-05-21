@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { FileText, ArrowLeft, Trash2 } from 'lucide-react'
 import { useToast } from '@/lib/toast'
 import { getGierSubmissions, deleteGierSubmission } from '@/lib/db'
+import { formatDateBR } from '@/lib/dates'
 
 interface HistoryItem {
   id: string
@@ -14,6 +15,12 @@ interface HistoryItem {
   activity_date?: string
   created_at: string
   status: string
+  ai_interpretation?: {
+    component: string
+    skill_code: string
+    skill_description: string
+    activity_type?: string
+  }
 }
 
 export default function GierHistoricoPage() {
@@ -77,16 +84,22 @@ export default function GierHistoricoPage() {
                       background: 'var(--primary-50)', padding: '2px 8px', borderRadius: 'var(--radius-full)',
                     }}>{item.class.name}</span>
                   )}
+                  {item.ai_interpretation?.component && (
+                    <span style={{
+                      fontSize: 12, fontWeight: 600, color: 'var(--secondary)',
+                      background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: 'var(--radius-full)',
+                    }}>{item.ai_interpretation.component}</span>
+                  )}
                   {item.activity_date && (
                     <span style={{
                       fontSize: 12, color: 'var(--text-muted)',
                       background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                    }}>{new Date(item.activity_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                    }}>{formatDateBR(item.activity_date)}</span>
                   )}
                   <span style={{
                     fontSize: 12, color: 'var(--text-muted)',
                     background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                  }}>{new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
+                  }}>{formatDateBR(item.created_at.split('T')[0])}</span>
                 </div>
                 <p style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {item.gier_description || 'Sem descrição'}

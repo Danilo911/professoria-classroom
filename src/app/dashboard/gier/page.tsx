@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Upload, Sparkles, Copy, Check, Pencil, Save, ExternalLink, Clock } from 'lucide-react'
+import { Upload, Sparkles, Copy, Check, Pencil, Save, ExternalLink, Clock, Camera } from 'lucide-react'
 import { useToast } from '@/lib/toast'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { MicButton } from '@/components/ui/MicButton'
 import { fileToBase64 } from '@/lib/file'
 import { scheduleCorrection } from '@/lib/correctText'
 import { getClasses, saveGierSubmission } from '@/lib/db'
+import { getTodayISO } from '@/lib/dates'
 
 export default function GierPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -21,9 +22,10 @@ export default function GierPage() {
   const [copiado, setCopiado] = useState(false)
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([])
   const [selectedClassId, setSelectedClassId] = useState('')
-  const [activityDate, setActivityDate] = useState(new Date().toISOString().slice(0, 10))
+  const [activityDate, setActivityDate] = useState(getTodayISO())
   const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -231,11 +233,16 @@ export default function GierPage() {
             onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
             onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border)'; if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]) }}>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }} />
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }} />
             {!file ? (
               <>
                 <Upload size={40} color="var(--text-muted)" style={{ marginBottom: 12 }} />
                 <p style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>Arraste ou clique para enviar</p>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Imagens (JPEG, PNG, WebP) · Máx 20MB</p>
+                <div style={{ marginTop: 16, display: 'flex', gap: 12, justifyContent: 'center' }}>
+                  <button onClick={e => { e.stopPropagation(); fileRef.current?.click() }} className="btn btn-secondary btn-sm"><Upload size={14} /> Galeria</button>
+                  <button onClick={e => { e.stopPropagation(); cameraRef.current?.click() }} className="btn btn-secondary btn-sm"><Camera size={14} /> Câmera</button>
+                </div>
               </>
             ) : (
               <>
