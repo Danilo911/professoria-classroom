@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, X, Check, Calendar, FileText, Download, Edit2 } from 'lucide-react'
-import { getClasses, getClassStudents, getDiaryEntries, createDiaryEntry, updateDiaryEntry, getDiaryEntryByDate, getStudentObservations, createStudentObservation, getGrades, upsertGrade, getClassSummary } from '@/lib/db'
+import { getClasses, getClassStudents, getDiaryEntries, createDiaryEntry, updateDiaryEntry, getDiaryEntryByDate, getStudentObservations, getBatchStudentObservations, createStudentObservation, getGrades, upsertGrade, getClassSummary } from '@/lib/db'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { useToast } from '@/lib/toast'
 import { MicButton } from '@/components/ui/MicButton'
@@ -128,11 +128,9 @@ export default function DiarioPage() {
         setEntryForm({ type: todayEntryData.type, title: todayEntryData.title || '', content: todayEntryData.content, date: today })
       }
 
-      const [gradesData, obsResults] = await Promise.all([
+      const [gradesData, batchObs] = await Promise.all([
         getGrades({ class_id: classId }).catch(() => []),
-        Promise.all(studentsData.map(st =>
-          getStudentObservations(st.id, classId).catch(() => [])
-        )),
+        getBatchStudentObservations(classId).catch(() => ({} as Record<string, StudentObservation[]>)),
       ])
 
       const map: Record<string, Grade[]> = {}
@@ -141,9 +139,7 @@ export default function DiarioPage() {
       }
       setGradesMap(map)
 
-      const obsDataMap: Record<string, StudentObservation[]> = {}
-      studentsData.forEach((st, i) => { obsDataMap[st.id] = obsResults[i] })
-      setObsMap(obsDataMap)
+      setObsMap(batchObs)
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao carregar dados', 'error')
     } finally {
@@ -185,7 +181,8 @@ export default function DiarioPage() {
 
   function openObsMenu(studentId: string, e: React.MouseEvent) {
     e.stopPropagation()
-    const rect = (e.target as HTMLElement).getBoundingClientRect()
+    const target = (e.target as HTMLElement | null)
+    const rect = target ? target.getBoundingClientRect() : { left: 0, bottom: 0 }
     setObsMenu({ studentId, x: rect.left, y: rect.bottom + 4, view: 'menu' })
     setMenuStyle({ left: rect.left, top: rect.bottom + 4 })
     setObsForm({ category: 'general', severity: 'info', content: '' })
@@ -444,7 +441,7 @@ export default function DiarioPage() {
                         {OBSERVATION_CATEGORIES.map(cat => {
                           const count = getObsCount(st.id, cat.key)
                           return (
-                            <button key={cat.key} onClick={() => activeTab === 'observations' && openObsMenu(st.id, new MouseEvent('click') as any)} style={{
+                            <button key={cat.key} onClick={(e) => activeTab === 'observations' && openObsMenu(st.id, e)} style={{
                               flex: 1, height: 48, borderRadius: 8, border: 'none',
                               background: count > 0 ? `${cat.color}15` : 'var(--bg-secondary)',
                               color: count > 0 ? cat.color : 'var(--text-muted)',

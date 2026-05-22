@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Calendar, BookOpen } from 'lucide-react'
 import { getLessonPlans, getClasses } from '@/lib/db'
+import { formatDateBR } from '@/lib/dates'
 import type { LessonPlan, Class } from '@/types'
 
 const typeLabels: Record<string, { label: string; color: string }> = {
@@ -30,9 +31,9 @@ export default function PlanejamentoPage() {
   }, [])
 
   function formatDateRange(start: string, end?: string) {
-    const s = new Date(start + 'T12:00:00').toLocaleDateString('pt-BR')
+    const s = formatDateBR(start)
     if (!end || start === end) return s
-    const e = new Date(end + 'T12:00:00').toLocaleDateString('pt-BR')
+    const e = formatDateBR(end)
     return `${s} a ${e}`
   }
 

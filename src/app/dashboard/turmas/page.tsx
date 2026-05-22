@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, Users, Edit2, Trash2 } from 'lucide-react'
 import { getClasses, createClass, updateClass, deleteClass } from '@/lib/db'
+import { getTodayISO } from '@/lib/dates'
 import { useToast } from '@/lib/toast'
 import type { Class } from '@/types'
 
@@ -83,7 +84,7 @@ export default function TurmasPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 24, marginBottom: 4 }}>Minhas Turmas</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{classes.length} turmas ativas em {new Date().getFullYear()}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{classes.length} turmas ativas em {getTodayISO().split('-')[0]}</p>
         </div>
         <button onClick={openNew} className="btn btn-primary">
           <Plus size={18} /> Nova turma

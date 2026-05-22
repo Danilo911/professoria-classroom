@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Sparkles, Check, Copy, FileDown, FileText as FileTextIcon, User, X, ArrowLeft, ChevronRight, Brain, AlertTriangle, Zap, MessageCircle, Smile, Eye, Heart, Users, Mic, ClipboardCopy, Loader2 } from 'lucide-react'
 import { getClasses, getClassStudents, saveAIReport, getTeacher, getStudentObservations } from '@/lib/db'
 import { useToast } from '@/lib/toast'
+import { getTodayISO, formatDateBR } from '@/lib/dates'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { REFERRAL_TYPES } from '@/types/database'
 import type { Class, Student, Teacher } from '@/types'
@@ -141,11 +142,8 @@ export default function EncaminhamentoPage() {
     const studentName = selectedStudent?.student.full_name || ''
     const className = selectedStudent?.class.name || ''
     const typeLabel = REFERRAL_TYPES.find(t => t.key === selectedType)
-    const today = new Date()
-    const day = String(today.getDate()).padStart(2, '0')
-    const month = String(today.getMonth() + 1).padStart(2, '0')
-    const year = today.getFullYear()
-    const formattedDate = `${day}/${month}/${year}`
+    const formattedDate = formatDateBR(getTodayISO())
+    const year = getTodayISO().split('-')[0]
 
     let lines = ''
     lines += `PREFEITURA MUNICIPAL DE ${schoolCity.toUpperCase()}\n`

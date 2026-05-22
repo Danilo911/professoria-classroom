@@ -4,13 +4,17 @@ import type {
   AttendanceSession, AttendanceRecord, DiaryEntry,
   StudentObservation, AIReport, GierSubmission,
   CurriculumSkill, SkillAssessment, LessonPlan, School, Grade,
-  Rubric, RubricEvaluation,
+  Rubric, RubricEvaluation, ClassHoliday,
 } from '@/types'
 import { getTodayISO } from '@/lib/dates'
 
-// Cache de sessão para evitar N chamadas auth.getUser()
 let cachedUserId: string | null = null
 let cachePromise: Promise<string | null> | null = null
+
+export function clearUserCache() {
+  cachedUserId = null
+  cachePromise = null
+}
 
 async function getUserId(): Promise<string | null> {
   if (cachedUserId) return cachedUserId
@@ -33,12 +37,13 @@ export async function getTeacher(): Promise<Teacher | null> {
   const userId = await getUserId()
   if (!userId) return null
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('teachers')
     .select('*, school:schools(*)')
     .eq('id', userId)
     .single()
-  return data
+  if (error) console.error('getTeacher:', error.message)
+  return data || null
 }
 
 // ==================== CLASSES ====================
@@ -52,6 +57,7 @@ export async function getClasses(): Promise<Class[]> {
     .eq('teacher_id', userId!)
     .is('is_active', true)
     .order('name')
+  if (error) console.error('getClasses:', error.message)
   return data || []
 }
 
@@ -60,6 +66,7 @@ export async function createClass(input: {
 }): Promise<Class> {
   const supabase = createClient()
   const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
 
   const { data, error } = await supabase
     .from('classes')
@@ -74,14 +81,20 @@ export async function createClass(input: {
 // ==================== STUDENTS ====================
 
 export async function getClassStudents(classId: string): Promise<Student[]> {
+  const userId = await getUserId()
+  if (!userId) return []
   const supabase = createClient()
-  const { data } = await supabase
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', classId).single()
+  if (!cls || cls.teacher_id !== userId) return []
+
+  const { data, error } = await supabase
     .from('enrollments')
     .select('student:students(*)')
     .eq('class_id', classId)
     .eq('status', 'active')
     .order('enrolled_at')
 
+  if (error) console.error('getClassStudents:', error.message)
   const result: Student[] = []
   data?.forEach((e: Record<string, unknown>) => {
     const student = Array.isArray(e.student) ? e.student[0] : e.student
@@ -91,14 +104,20 @@ export async function getClassStudents(classId: string): Promise<Student[]> {
 }
 
 export async function getTransfers(classId: string): Promise<Record<string, string>> {
+  const userId = await getUserId()
+  if (!userId) return {}
   const supabase = createClient()
-  const { data } = await supabase
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', classId).single()
+  if (!cls || cls.teacher_id !== userId) return {}
+
+  const { data, error } = await supabase
     .from('enrollments')
     .select('student_id, transferred_at')
     .eq('class_id', classId)
     .eq('status', 'active')
     .not('transferred_at', 'is', null)
 
+  if (error) console.error('getTransfers:', error.message)
   const result: Record<string, string> = {}
   data?.forEach((e: Record<string, unknown>) => {
     if (e.transferred_at && e.student_id) result[e.student_id as string] = e.transferred_at as string
@@ -107,7 +126,12 @@ export async function getTransfers(classId: string): Promise<Record<string, stri
 }
 
 export async function saveTransfer(classId: string, studentId: string, date: string) {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', classId).single()
+  if (!cls || cls.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { error } = await supabase
     .from('enrollments')
     .update({ transferred_at: date })
@@ -117,7 +141,12 @@ export async function saveTransfer(classId: string, studentId: string, date: str
 }
 
 export async function removeTransfer(classId: string, studentId: string) {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', classId).single()
+  if (!cls || cls.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { error } = await supabase
     .from('enrollments')
     .update({ transferred_at: null })
@@ -127,7 +156,12 @@ export async function removeTransfer(classId: string, studentId: string) {
 }
 
 export async function addStudent(classId: string, fullName: string): Promise<Student> {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', classId).single()
+  if (!cls || cls.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { data: student, error: studentError } = await supabase
     .from('students')
     .insert({ full_name: fullName })
@@ -138,22 +172,36 @@ export async function addStudent(classId: string, fullName: string): Promise<Stu
   const { error: enrollError } = await supabase
     .from('enrollments')
     .insert({ class_id: classId, student_id: student.id })
-  if (enrollError) throw enrollError
+  if (enrollError) {
+    await supabase.from('students').delete().eq('id', student.id)
+    throw enrollError
+  }
 
-  // Increment student_count on class
   await supabase.rpc('increment_class_student_count', { class_id: classId })
-
   return student
 }
 
 export async function updateStudent(id: string, fullName: string) {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+  const { data: enrollment } = await supabase.from('enrollments').select('class_id').eq('student_id', id).limit(1).single()
+  if (enrollment) {
+    const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', enrollment.class_id).single()
+    if (!cls || cls.teacher_id !== userId) throw new Error('Sem permissão')
+  }
+
   const { error } = await supabase.from('students').update({ full_name: fullName }).eq('id', id)
   if (error) throw error
 }
 
 export async function removeStudent(id: string, classId: string) {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', classId).single()
+  if (!cls || cls.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { error: enrollError } = await supabase
     .from('enrollments')
     .update({ status: 'inactive' })
@@ -165,34 +213,49 @@ export async function removeStudent(id: string, classId: string) {
 }
 
 export async function getStudent(id: string): Promise<Student | null> {
+  const userId = await getUserId()
+  if (!userId) return null
   const supabase = createClient()
-  const { data } = await supabase.from('students').select('*').eq('id', id).single()
-  return data
+  const { data: enrollment } = await supabase.from('enrollments').select('class_id').eq('student_id', id).limit(1).single()
+  if (enrollment) {
+    const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', enrollment.class_id).single()
+    if (!cls || cls.teacher_id !== userId) return null
+  }
+
+  const { data, error } = await supabase.from('students').select('*').eq('id', id).single()
+  if (error) console.error('getStudent:', error.message)
+  return data || null
 }
 
 // ==================== ATTENDANCE ====================
 
 export async function getSessionsByRange(classId: string, startDate: string, endDate: string): Promise<AttendanceSession[]> {
   const supabase = createClient()
-  const { data } = await supabase
+  const userId = await getUserId()
+  const { data, error } = await supabase
     .from('attendance_sessions')
     .select('*, records:attendance_records(student_id, status)')
     .eq('class_id', classId)
+    .eq('teacher_id', userId!)
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date', { ascending: true })
+  if (error) console.error('getSessionsByRange:', error.message)
   return data || []
 }
 
 export async function getSessionByDate(classId: string, date: string): Promise<AttendanceSession | null> {
   const supabase = createClient()
-  const { data } = await supabase
+  const userId = await getUserId()
+  const { data, error } = await supabase
     .from('attendance_sessions')
     .select('*, records:attendance_records(*, student:students(*))')
     .eq('class_id', classId)
+    .eq('teacher_id', userId!)
     .eq('date', date)
     .maybeSingle()
-  return data
+  if (error) console.error('getSessionByDate:', error.message)
+  return data || null
 }
 
 export async function getTodaySession(classId: string): Promise<AttendanceSession | null> {
@@ -203,6 +266,7 @@ export async function getTodaySession(classId: string): Promise<AttendanceSessio
 export async function createAttendanceSession(classId: string, date?: string): Promise<AttendanceSession> {
   const supabase = createClient()
   const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const sessionDate = date || getTodayISO()
 
   const { data, error } = await supabase
@@ -230,12 +294,22 @@ export async function saveAttendanceRecords(
 }
 
 export async function completeSession(sessionId: string) {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+  const { data: session } = await supabase.from('attendance_sessions').select('teacher_id').eq('id', sessionId).single()
+  if (!session || session.teacher_id !== userId) throw new Error('Sem permissão')
+
   await supabase.from('attendance_sessions').update({ completed: true }).eq('id', sessionId)
 }
 
-export async function getClassHolidays(classId: string, startDate: string, endDate: string): Promise<{ date: string; type: string; description: string | null }[]> {
+export async function getClassHolidays(classId: string, startDate: string, endDate: string): Promise<ClassHoliday[]> {
+  const userId = await getUserId()
+  if (!userId) return []
   const supabase = createClient()
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', classId).single()
+  if (!cls || cls.teacher_id !== userId) return []
+
   const { data, error } = await supabase
     .from('class_holidays')
     .select('date, type, description')
@@ -254,11 +328,16 @@ export async function getClassHolidays(classId: string, startDate: string, endDa
       .order('date')
     return (fallback || []).map(d => ({ date: d.date, type: 'holiday', description: null }))
   }
-  return data || []
+  return (data || []) as ClassHoliday[]
 }
 
 export async function upsertHoliday(classId: string, date: string, type: string = 'holiday', description: string | null = null) {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', classId).single()
+  if (!cls || cls.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { error } = await supabase
     .from('class_holidays')
     .upsert({ class_id: classId, date, type, description }, { onConflict: 'class_id,date' })
@@ -275,7 +354,12 @@ export async function upsertHoliday(classId: string, date: string, type: string 
 }
 
 export async function deleteHoliday(classId: string, date: string) {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', classId).single()
+  if (!cls || cls.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { error } = await supabase
     .from('class_holidays')
     .delete()
@@ -288,9 +372,11 @@ export async function deleteHoliday(classId: string, date: string) {
 
 export async function getDiaryEntries(classId?: string): Promise<DiaryEntry[]> {
   const supabase = createClient()
-  let query = supabase.from('diary_entries').select('*').order('date', { ascending: false })
+  const userId = await getUserId()
+  let query = supabase.from('diary_entries').select('*').eq('teacher_id', userId!).order('date', { ascending: false })
   if (classId) query = query.eq('class_id', classId)
-  const { data } = await query
+  const { data, error } = await query
+  if (error) console.error('getDiaryEntries:', error.message)
   return data || []
 }
 
@@ -299,6 +385,8 @@ export async function createDiaryEntry(input: {
 }): Promise<DiaryEntry> {
   const supabase = createClient()
   const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
+
   const { data, error } = await supabase
     .from('diary_entries')
     .insert({ ...input, teacher_id: userId!, date: input.date || getTodayISO() })
@@ -310,17 +398,26 @@ export async function createDiaryEntry(input: {
 
 export async function getDiaryEntryByDate(classId: string, date: string): Promise<DiaryEntry | null> {
   const supabase = createClient()
-  const { data } = await supabase
+  const userId = await getUserId()
+  const { data, error } = await supabase
     .from('diary_entries')
     .select('*')
     .eq('class_id', classId)
+    .eq('teacher_id', userId!)
     .eq('date', date)
     .maybeSingle()
-  return data
+  if (error) console.error('getDiaryEntryByDate:', error.message)
+  return data || null
 }
 
 export async function updateDiaryEntry(id: string, input: { title?: string; content: string; type?: string }): Promise<DiaryEntry> {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+
+  const { data: existing } = await supabase.from('diary_entries').select('teacher_id').eq('id', id).single()
+  if (!existing || existing.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { data, error } = await supabase
     .from('diary_entries')
     .update(input)
@@ -335,14 +432,36 @@ export async function updateDiaryEntry(id: string, input: { title?: string; cont
 
 export async function getStudentObservations(studentId: string, classId?: string): Promise<StudentObservation[]> {
   const supabase = createClient()
+  const userId = await getUserId()
   let query = supabase
     .from('student_observations')
     .select('*')
     .eq('student_id', studentId)
+    .eq('teacher_id', userId!)
     .order('date', { ascending: false })
   if (classId) query = query.eq('class_id', classId)
-  const { data } = await query
+  const { data, error } = await query
+  if (error) console.error('getStudentObservations:', error.message)
   return data || []
+}
+
+export async function getBatchStudentObservations(classId: string): Promise<Record<string, StudentObservation[]>> {
+  const supabase = createClient()
+  const userId = await getUserId()
+  if (!userId) return {}
+  const { data, error } = await supabase
+    .from('student_observations')
+    .select('*')
+    .eq('class_id', classId)
+    .eq('teacher_id', userId)
+    .order('date', { ascending: false })
+  if (error) console.error('getBatchStudentObservations:', error.message)
+  const result: Record<string, StudentObservation[]> = {}
+  for (const obs of (data || [])) {
+    if (!result[obs.student_id]) result[obs.student_id] = []
+    result[obs.student_id].push(obs)
+  }
+  return result
 }
 
 export async function createStudentObservation(input: {
@@ -367,12 +486,14 @@ export async function createStudentObservation(input: {
 
 export async function getGrades(filters: { student_id?: string; class_id?: string; bimestre?: number }): Promise<Grade[]> {
   const supabase = createClient()
-  let query = supabase.from('grades').select('*, student:students(*)')
+  const userId = await getUserId()
+  let query = supabase.from('grades').select('*, student:students(*)').eq('teacher_id', userId!)
   if (filters.student_id) query = query.eq('student_id', filters.student_id)
   if (filters.class_id) query = query.eq('class_id', filters.class_id)
   if (filters.bimestre) query = query.eq('bimestre', filters.bimestre)
   query = query.order('bimestre')
-  const { data } = await query
+  const { data, error } = await query
+  if (error) console.error('getGrades:', error.message)
   return data || []
 }
 
@@ -401,11 +522,13 @@ export async function getClassSummary(classId: string): Promise<{
   criticalObservations: number
 }> {
   const supabase = createClient()
+  const userId = await getUserId()
+  if (!userId) return { totalStudents: 0, averageGrade: null, criticalObservations: 0 }
 
   const [enrollments, gradesData, obsData] = await Promise.all([
     supabase.from('enrollments').select('id', { count: 'exact', head: true }).eq('class_id', classId).eq('status', 'active'),
-    supabase.from('grades').select('nota').eq('class_id', classId),
-    supabase.from('student_observations').select('id', { count: 'exact', head: true }).eq('class_id', classId).eq('severity', 'critical'),
+    supabase.from('grades').select('nota').eq('class_id', classId).eq('teacher_id', userId),
+    supabase.from('student_observations').select('id', { count: 'exact', head: true }).eq('class_id', classId).eq('teacher_id', userId).eq('severity', 'critical'),
   ])
 
   const notas = gradesData.data?.map(g => g.nota).filter((n): n is number => n !== null) || []
@@ -422,39 +545,35 @@ export async function getClassSummary(classId: string): Promise<{
 
 export async function getLessonPlans(classId?: string): Promise<LessonPlan[]> {
   const supabase = createClient()
-  let query = supabase.from('lesson_plans').select('*').order('date_start', { ascending: false })
+  const userId = await getUserId()
+  let query = supabase.from('lesson_plans').select('*').eq('teacher_id', userId!).order('date_start', { ascending: false })
   if (classId) query = query.eq('class_id', classId)
-  const { data } = await query
+  const { data, error } = await query
+  if (error) console.error('getLessonPlans:', error.message)
   return data || []
 }
 
 // ==================== CURRICULUM SKILLS ====================
 
-export async function getSkills(grade?: string, source?: string): Promise<CurriculumSkill[]> {
-  const supabase = createClient()
-  let query = supabase.from('curriculum_skills').select('*').order('code')
-  if (grade) query = query.eq('grade', grade)
-  if (source) query = query.eq('source', source)
-  const { data } = await query
-  return data || []
-}
-
 export async function getCurriculumSkills(grade?: string, source?: string): Promise<CurriculumSkill[]> {
   const supabase = createClient()
   let query = supabase.from('curriculum_skills').select('*').order('code')
   if (grade) {
-    // Match grade containing the class grade (e.g. "1º Ano" matches "1º Ano/2º Ano/3º Ano/4º Ano")
     query = query.ilike('grade', `%${grade}%`)
   }
   if (source) query = query.eq('source', source)
-  const { data } = await query
+  const { data, error } = await query
+  if (error) console.error('getCurriculumSkills:', error.message)
   return data || []
 }
 
 export async function getClass(id: string): Promise<Class | null> {
   const supabase = createClient()
-  const { data } = await supabase.from('classes').select('*').eq('id', id).single()
-  return data
+  const userId = await getUserId()
+  if (!userId) return null
+  const { data, error } = await supabase.from('classes').select('*').eq('id', id).eq('teacher_id', userId).single()
+  if (error) console.error('getClass:', error.message)
+  return data || null
 }
 
 export async function insertSkills(skills: Omit<CurriculumSkill, 'id' | 'created_at'>[]) {
@@ -470,11 +589,13 @@ export async function insertSkills(skills: Omit<CurriculumSkill, 'id' | 'created
 
 export async function getAIReports(filters: { class_id?: string; student_id?: string; type?: string }): Promise<AIReport[]> {
   const supabase = createClient()
-  let query = supabase.from('ai_reports').select('*').order('created_at', { ascending: false })
+  const userId = await getUserId()
+  let query = supabase.from('ai_reports').select('*').eq('teacher_id', userId!).order('created_at', { ascending: false })
   if (filters.class_id) query = query.eq('class_id', filters.class_id)
   if (filters.student_id) query = query.eq('student_id', filters.student_id)
   if (filters.type) query = query.eq('type', filters.type)
-  const { data } = await query
+  const { data, error } = await query
+  if (error) console.error('getAIReports:', error.message)
   return data || []
 }
 
@@ -483,6 +604,8 @@ export async function saveAIReport(input: {
 }): Promise<AIReport> {
   const supabase = createClient()
   const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
+
   const { data, error } = await supabase
     .from('ai_reports')
     .insert({
@@ -511,7 +634,8 @@ export async function getGierSubmissions(filters?: { class_id?: string }): Promi
     .order('created_at', { ascending: false })
 
   if (filters?.class_id) query = query.eq('class_id', filters.class_id)
-  const { data } = await query
+  const { data, error } = await query
+  if (error) console.error('getGierSubmissions:', error.message)
   return (data || []) as GierSubmission[]
 }
 
@@ -553,7 +677,13 @@ export async function saveGierSubmission(input: {
 }
 
 export async function updateGierSubmission(id: string, data: Partial<GierSubmission>): Promise<GierSubmission> {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+
+  const { data: existing } = await supabase.from('gier_submissions').select('teacher_id').eq('id', id).single()
+  if (!existing || existing.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { data: updated, error } = await supabase
     .from('gier_submissions')
     .update(data)
@@ -566,7 +696,13 @@ export async function updateGierSubmission(id: string, data: Partial<GierSubmiss
 }
 
 export async function deleteGierSubmission(id: string): Promise<void> {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+
+  const { data: existing } = await supabase.from('gier_submissions').select('teacher_id').eq('id', id).single()
+  if (!existing || existing.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { error } = await supabase
     .from('gier_submissions')
     .delete()
@@ -620,7 +756,6 @@ export async function upsertSchool(data: { name: string; city?: string; state?: 
   } else {
     const { data: school, error } = await supabase.from('schools').insert(data).select().single()
     if (error) {
-      // Fallback: insert without select, then find by name
       const { error: insertErr } = await supabase.from('schools').insert(data)
       if (insertErr) throw insertErr
       const { data: foundSchool } = await supabase.from('schools').select('id').eq('name', data.name).limit(1).single()
@@ -636,7 +771,13 @@ export async function upsertSchool(data: { name: string; city?: string; state?: 
 // ==================== CLASS UPDATE/DELETE ====================
 
 export async function updateClass(id: string, data: { name?: string; grade?: string; period?: string }): Promise<Class> {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', id).single()
+  if (!cls || cls.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { data: updated, error } = await supabase
     .from('classes')
     .update(data)
@@ -648,7 +789,13 @@ export async function updateClass(id: string, data: { name?: string; grade?: str
 }
 
 export async function deleteClass(id: string): Promise<void> {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+
+  const { data: cls } = await supabase.from('classes').select('teacher_id').eq('id', id).single()
+  if (!cls || cls.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { error } = await supabase
     .from('classes')
     .update({ is_active: false })
@@ -661,22 +808,27 @@ export async function deleteClass(id: string): Promise<void> {
 export async function getRubrics(): Promise<Rubric[]> {
   const supabase = createClient()
   const userId = await getUserId()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('rubrics')
     .select('*, criteria:rubric_criteria(*), levels:rubric_levels(*)')
     .eq('teacher_id', userId)
     .order('created_at', { ascending: false })
+  if (error) console.error('getRubrics:', error.message)
   return data || []
 }
 
 export async function getRubric(id: string): Promise<Rubric | null> {
   const supabase = createClient()
-  const { data } = await supabase
+  const userId = await getUserId()
+  if (!userId) return null
+  const { data, error } = await supabase
     .from('rubrics')
     .select('*, criteria:rubric_criteria(*), levels:rubric_levels(*)')
     .eq('id', id)
+    .eq('teacher_id', userId!)
     .single()
-  return data
+  if (error) console.error('getRubric:', error.message)
+  return data || null
 }
 
 export async function createRubric(input: {
@@ -718,27 +870,37 @@ export async function updateRubric(id: string, input: {
   criteria?: { description: string; sort_order: number }[]
   levels?: { level: number; label: string; color: string }[]
 }): Promise<Rubric> {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
 
+  const { data: existing } = await supabase.from('rubrics').select('teacher_id').eq('id', id).single()
+  if (!existing || existing.teacher_id !== userId) throw new Error('Sem permissão')
+
   if (input.title) {
-    await supabase.from('rubrics').update({ title: input.title }).eq('id', id)
+    const { error: titleErr } = await supabase.from('rubrics').update({ title: input.title }).eq('id', id)
+    if (titleErr) throw titleErr
   }
 
   if (input.criteria) {
-    await supabase.from('rubric_criteria').delete().eq('rubric_id', id)
+    const { error: delErr } = await supabase.from('rubric_criteria').delete().eq('rubric_id', id)
+    if (delErr) throw delErr
     if (input.criteria.length > 0) {
-      await supabase.from('rubric_criteria').insert(
+      const { error: insErr } = await supabase.from('rubric_criteria').insert(
         input.criteria.map(c => ({ rubric_id: id, ...c }))
       )
+      if (insErr) throw insErr
     }
   }
 
   if (input.levels) {
-    await supabase.from('rubric_levels').delete().eq('rubric_id', id)
+    const { error: delErr } = await supabase.from('rubric_levels').delete().eq('rubric_id', id)
+    if (delErr) throw delErr
     if (input.levels.length > 0) {
-      await supabase.from('rubric_levels').insert(
+      const { error: insErr } = await supabase.from('rubric_levels').insert(
         input.levels.map(l => ({ rubric_id: id, ...l }))
       )
+      if (insErr) throw insErr
     }
   }
 
@@ -747,20 +909,33 @@ export async function updateRubric(id: string, input: {
 }
 
 export async function deleteRubric(id: string): Promise<void> {
+  const userId = await getUserId()
+  if (!userId) throw new Error('Não autenticado')
   const supabase = createClient()
+
+  const { data: existing } = await supabase.from('rubrics').select('teacher_id').eq('id', id).single()
+  if (!existing || existing.teacher_id !== userId) throw new Error('Sem permissão')
+
   const { error } = await supabase.from('rubrics').delete().eq('id', id)
   if (error) throw error
 }
 
 export async function getRubricEvaluations(rubricId: string, classId: string, date?: string): Promise<RubricEvaluation[]> {
   const supabase = createClient()
+  const userId = await getUserId()
+  if (!userId) return []
+
+  const { data: rubric } = await supabase.from('rubrics').select('teacher_id').eq('id', rubricId).single()
+  if (!rubric || rubric.teacher_id !== userId) return []
+
   let query = supabase
     .from('rubric_evaluations')
     .select('*, student:students(*), scores:rubric_scores(*)')
     .eq('rubric_id', rubricId)
     .eq('class_id', classId)
   if (date) query = query.eq('evaluated_at', date)
-  const { data } = await query.order('evaluated_at', { ascending: false })
+  const { data, error } = await query.order('evaluated_at', { ascending: false })
+  if (error) console.error('getRubricEvaluations:', error.message)
   return data || []
 }
 

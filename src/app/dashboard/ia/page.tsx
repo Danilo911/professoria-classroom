@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Sparkles, FileText, Users, MessageSquare, Lightbulb, ClipboardCopy, Check, Download, FileDown, Upload, Copy, Plus, ChevronRight, User, X, FileText as FileTextIcon, ArrowLeft, Calendar } from 'lucide-react'
+import { Sparkles, FileText, Users, MessageSquare, Lightbulb, ClipboardCopy, Check, FileDown, Upload, Copy, Plus, ChevronRight, User, X, FileText as FileTextIcon, ArrowLeft, Calendar } from 'lucide-react'
 import { getClasses, getClassStudents, getStudentObservations, saveAIReport, getAIReports, getDiaryEntries, getTeacher } from '@/lib/db'
 import { useToast } from '@/lib/toast'
-import { getTodayISO } from '@/lib/dates'
+import { getTodayISO, formatDateBR, formatDateTimeBR } from '@/lib/dates'
 import type { Class, Student, AIReport, Teacher } from '@/types'
 
 const reportTypes = [
@@ -243,11 +243,7 @@ export default function IAPage() {
     const studentName = formData.studentName || ''
     const className = formData.className || ''
     const period = getPeriodLabel()
-    const today = new Date()
-    const day = String(today.getDate()).padStart(2, '0')
-    const month = String(today.getMonth() + 1).padStart(2, '0')
-    const year = today.getFullYear()
-    const formattedDate = `${day}/${month}/${year}`
+    const formattedDate = formatDateBR(getTodayISO())
 
     let lines = ''
     lines += `PREFEITURA MUNICIPAL DE ${schoolCity.toUpperCase()}\n`
@@ -263,7 +259,7 @@ export default function IAPage() {
     if (teacherName) lines += `Professor(a): ${teacherName}\n`
     lines += `Data: ${formattedDate}\n`
     if (period) lines += `Período: ${period}\n`
-    lines += `Ano letivo: ${year}\n`
+    lines += `Ano letivo: ${getTodayISO().split('-')[0]}\n`
 
     return lines
   }
@@ -342,11 +338,6 @@ export default function IAPage() {
   }
   const SEVERITY_LABELS: Record<string, string> = {
     info: 'Info', attention: 'Atenção', critical: 'Crítico',
-  }
-
-  function formatDateBR(dateStr: string): string {
-    const d = new Date(dateStr + 'T12:00:00')
-    return d.toLocaleDateString('pt-BR')
   }
 
   async function copiarRegistros() {
@@ -698,7 +689,7 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 500 }}>Parecer Descritivo</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{new Date(r.created_at).toLocaleDateString('pt-BR')} às {new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{formatDateTimeBR(r.created_at)}</div>
                       </div>
                       <span className="badge" style={{
                         background: r.status === 'final' ? 'var(--success-light)' : 'var(--warning-light)',
@@ -756,7 +747,7 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 500 }}>Conselho de Classe</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{new Date(r.created_at).toLocaleDateString('pt-BR')} às {new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{formatDateTimeBR(r.created_at)}</div>
                       </div>
                       <span className="badge" style={{
                         background: r.status === 'final' ? 'var(--success-light)' : 'var(--warning-light)',

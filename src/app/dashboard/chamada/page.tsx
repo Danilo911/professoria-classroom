@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Check, X, FileText, Minus, Calendar, XCircle, Umbrella, Users, Building, BookOpen } from 'lucide-react'
-import { getClassStudents, getSessionsByRange, createAttendanceSession, saveAttendanceRecords, completeSession, getClassHolidays, upsertHoliday, deleteHoliday, getTransfers, saveTransfer as saveTransferDB, removeTransfer as removeTransferDB } from '@/lib/db'
+import { getClasses, getClassStudents, getSessionsByRange, createAttendanceSession, saveAttendanceRecords, completeSession, getClassHolidays, upsertHoliday, deleteHoliday, getTransfers, saveTransfer as saveTransferDB, removeTransfer as removeTransferDB } from '@/lib/db'
 import { createClient } from '@/lib/supabase/client'
-import { getClasses } from '@/lib/db'
 import { useToast } from '@/lib/toast'
 import { getTodayISO, formatDateBR } from '@/lib/dates'
 import { deepClone } from '@/lib/utils'
@@ -27,9 +26,13 @@ function getSpecialDayInfo(type: string) {
 }
 
 function getMonthRange(year: number, month: number): { start: string; end: string } {
-  const start = new Date(year, month, 1)
-  const end = new Date(year, month + 1, 0)
-  return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] }
+  const startY = month === 0 ? year : year
+  const startM = month
+  const lastDay = new Date(startY, startM + 1, 0).getDate()
+  return {
+    start: `${startY}-${String(startM + 1).padStart(2, '0')}-01`,
+    end: `${startY}-${String(startM + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  }
 }
 
 function isWeekend(dateStr: string): boolean {
@@ -65,8 +68,9 @@ export default function ChamadaPage() {
   const [savingHolidays, setSavingHolidays] = useState(false)
   const [lastSaved, setLastSaved] = useState<Record<string, Record<string, Status>>>({})
   const [currentMonth, setCurrentMonth] = useState(() => {
-    const today = new Date()
-    return { year: today.getFullYear(), month: today.getMonth() }
+    const todayStr = getTodayISO()
+    const [y, m] = todayStr.split('-').map(Number)
+    return { year: y, month: m - 1 }
   })
   const [showMonthPicker, setShowMonthPicker] = useState(false)
   const { toast } = useToast()
@@ -137,42 +141,48 @@ export default function ChamadaPage() {
 
   async function loadData(classId: string) {
     setLoading(true)
-    const { start, end } = getMonthRange(currentMonth.year, currentMonth.month)
-    const [studentsData, sessionsData, holidaysData] = await Promise.all([
-      getClassStudents(classId),
-      getSessionsByRange(classId, start, end),
-      getClassHolidays(classId, start, end),
-    ])
-    setStudents(studentsData)
-    setSessions(sessionsData)
-    const sd: Record<string, { type: string; description: string | null }> = {}
-    for (const h of holidaysData) sd[h.date] = { type: h.type || 'holiday', description: h.description || null }
-    setSpecialDays(sd)
+    try {
+      const { start, end } = getMonthRange(currentMonth.year, currentMonth.month)
+      const [studentsData, sessionsData, holidaysData] = await Promise.all([
+        getClassStudents(classId),
+        getSessionsByRange(classId, start, end),
+        getClassHolidays(classId, start, end),
+      ])
+      setStudents(studentsData)
+      setSessions(sessionsData)
+      const sd: Record<string, { type: string; description: string | null }> = {}
+      for (const h of holidaysData) sd[h.date] = { type: h.type || 'holiday', description: h.description || null }
+      setSpecialDays(sd)
 
-    const allDates: string[] = []
-    const d = new Date(start + 'T12:00:00')
-    const endD = new Date(end + 'T12:00:00')
-    while (d <= endD) {
-      if (!isWeekend(d.toISOString().split('T')[0])) allDates.push(d.toISOString().split('T')[0])
-      d.setDate(d.getDate() + 1)
-    }
-    setDates(allDates)
+      const allDates: string[] = []
+      const d = new Date(start + 'T12:00:00')
+      const endD = new Date(end + 'T12:00:00')
+      while (d <= endD) {
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        if (!isWeekend(dateStr)) allDates.push(dateStr)
+        d.setDate(d.getDate() + 1)
+      }
+      setDates(allDates)
 
-    const map: Record<string, Record<string, Status>> = {}
-    for (const st of studentsData) {
-      map[st.id] = {}
-      for (const date of allDates) map[st.id][date] = 'present'
-    }
-    for (const session of sessionsData) {
-      for (const record of (session.records || [])) {
-        if (map[record.student_id]) {
-          map[record.student_id][session.date] = (record.status === 'late' ? 'justified' : record.status) as Status
+      const map: Record<string, Record<string, Status>> = {}
+      for (const st of studentsData) {
+        map[st.id] = {}
+        for (const date of allDates) map[st.id][date] = 'present'
+      }
+      for (const session of sessionsData) {
+        for (const record of (session.records || [])) {
+          if (map[record.student_id]) {
+            map[record.student_id][session.date] = (record.status === 'late' ? 'justified' : record.status) as Status
+          }
         }
       }
+      setAttendance(map)
+      setLastSaved(deepClone(map))
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao carregar dados', 'error')
+    } finally {
+      setLoading(false)
     }
-    setAttendance(map)
-    setLastSaved(deepClone(map))
-    setLoading(false)
   }
 
   function changeMonth(delta: number) {
@@ -394,8 +404,7 @@ export default function ChamadaPage() {
   const cellColors: Record<Status, string> = { present: '#22c55e', absent: '#ef4444', justified: '#f59e0b' }
   const cellBg: Record<Status, string> = { present: '#22c55e15', absent: '#ef444415', justified: '#f59e0b15' }
 
-  const isFutureMonth = currentMonth.year > new Date().getFullYear() ||
-    (currentMonth.year === new Date().getFullYear() && currentMonth.month > new Date().getMonth())
+  const isFutureMonth = (() => { const t = getTodayISO().split('-').map(Number); return currentMonth.year > t[0] || (currentMonth.year === t[0] && currentMonth.month > t[1] - 1) })()
 
   // Mobile: reference date for 5-day view (defaults to today)
   const [mobileRefDate, setMobileRefDate] = useState(today)

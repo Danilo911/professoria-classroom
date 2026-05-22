@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ClipboardList, ClipboardCheck, Plus, X, Check, Save, Trash2, ChevronDown, Users, ArrowLeft } from 'lucide-react'
+import { ClipboardList, ClipboardCheck, Plus, X, Save, Trash2 } from 'lucide-react'
 import { getRubrics, createRubric, updateRubric, deleteRubric, getRubric, getClasses, getClassStudents, getRubricEvaluations, saveRubricEvaluation } from '@/lib/db'
+import { getTodayISO } from '@/lib/dates'
 import { useToast } from '@/lib/toast'
 import type { Rubric, RubricLevel, Class, Student } from '@/types'
 
@@ -33,10 +34,7 @@ export default function AvaliacaoPage() {
   // Evaluation state
   const [showEval, setShowEval] = useState(false)
   const [evalClassId, setEvalClassId] = useState('')
-  const [evalDate, setEvalDate] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })
+  const [evalDate, setEvalDate] = useState(() => getTodayISO())
   const [evalStudents, setEvalStudents] = useState<Student[]>([])
   const [evalClasses, setEvalClasses] = useState<Class[]>([])
   const [evalScores, setEvalScores] = useState<Record<string, Record<string, number>>>({})
@@ -168,10 +166,7 @@ export default function AvaliacaoPage() {
     setEvalClassId('')
     setEvalScores({})
     setEvalStudents([])
-    setEvalDate(() => {
-      const d = new Date()
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    })
+    setEvalDate(getTodayISO())
 
     try {
       const classes = await getClasses()

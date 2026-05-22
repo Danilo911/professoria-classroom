@@ -104,6 +104,7 @@ export interface Enrollment {
   student_id: string
   status: EnrollmentStatus
   enrolled_at: string
+  transferred_at?: string
   // Joined
   student?: Student
   class?: Class
@@ -118,6 +119,12 @@ export interface Guardian {
   email?: string
   is_primary: boolean
   created_at: string
+}
+
+export interface ClassHoliday {
+  date: string
+  type: string
+  description: string | null
 }
 
 export interface AttendanceSession {

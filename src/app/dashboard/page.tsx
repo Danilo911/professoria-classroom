@@ -4,14 +4,15 @@ import { useState, useEffect } from 'react'
 import { Users, ClipboardCheck, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { getDashboardStats } from '@/lib/db'
+import { getTodayISO } from '@/lib/dates'
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({ activeClasses: 0, totalStudents: 0, aiReports: 0 })
   const [loading, setLoading] = useState(true)
   const [greeting] = useState(() => {
-    const h = new Date().getHours()
-    if (h < 12) return 'Bom dia'
-    if (h < 18) return 'Boa tarde'
+    const hour = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getHours()
+    if (hour < 12) return 'Bom dia'
+    if (hour < 18) return 'Boa tarde'
     return 'Boa noite'
   })
 
@@ -42,7 +43,7 @@ export default function DashboardPage() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 'clamp(20px, 4vw, 28px)', marginBottom: 4 }}>{greeting}, Professor! 👋</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-          {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          {new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
       </div>
 
