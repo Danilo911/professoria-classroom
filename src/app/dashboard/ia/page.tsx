@@ -869,19 +869,13 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Turma</label>
-              {classes.length <= 1 && formData.classId ? (
-                <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)', padding: '8px 0', display: 'block' }}>
-                  {formData.className}
-                </span>
-              ) : (
-                <select className="input" value={formData.classId} onChange={e => {
-                  const c = classes.find(cl => cl.id === e.target.value)
-                  setFormData(prev => ({ ...prev, classId: e.target.value, className: c?.name || '' }))
-                }}>
-                  <option value="">Selecione uma turma</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              )}
+              <select className="input" value={formData.classId} onChange={e => {
+                const c = classes.find(cl => cl.id === e.target.value)
+                setFormData(prev => ({ ...prev, classId: e.target.value, className: c?.name || '' }))
+              }}>
+                <option value="">Selecione uma turma</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Observações adicionais (opcional)</label>

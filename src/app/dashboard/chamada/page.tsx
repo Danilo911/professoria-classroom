@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Check, X, FileText, Minus, Calendar, XCircle, Umbrella, Users, Building, BookOpen } from 'lucide-react'
 import { getClassStudents, getSessionsByRange, createAttendanceSession, saveAttendanceRecords, completeSession, getClassHolidays, upsertHoliday, deleteHoliday, getTransfers, saveTransfer as saveTransferDB, removeTransfer as removeTransferDB } from '@/lib/db'
+import { createClient } from '@/lib/supabase/client'
 import { getClasses } from '@/lib/db'
 import { useToast } from '@/lib/toast'
 import { getTodayISO, formatDateBR } from '@/lib/dates'
@@ -302,35 +303,44 @@ export default function ChamadaPage() {
 
     setSaving(true)
     try {
-      let savedCount = 0
-      for (const date of changedDates) {
-        let session = sessions.find(s => s.date === date)
-        if (!session) {
-          const hasNonPresent = students.some(st => {
-            const tDate = transferredDate[st.id]
-            if (tDate && date >= tDate) return false
-            return attendance[st.id]?.[date] !== 'present'
-          })
-          if (!hasNonPresent) continue
-          session = await createAttendanceSession(selectedClass, date)
-        }
+      const sessionsByDate = new Map<string, string>()
+      for (const s of sessions) sessionsByDate.set(s.date, s.id)
 
-        const records = students
+      const toCreate = changedDates.filter(d => !sessionsByDate.has(d))
+      const newSessions = await Promise.all(
+        toCreate.map(d => createAttendanceSession(selectedClass, d))
+      )
+      for (const s of newSessions) sessionsByDate.set(s.date, s.id)
+      if (newSessions.length > 0) setSessions(prev => [...prev, ...newSessions])
+
+      const allRecords = changedDates.flatMap(date => {
+        const sessionId = sessionsByDate.get(date)
+        if (!sessionId) return []
+        return students
           .filter(st => {
             const tDate = transferredDate[st.id]
             return !(tDate && date >= tDate)
           })
-          .map(st => ({ student_id: st.id, status: (attendance[st.id]?.[date] === 'justified' ? 'late' : attendance[st.id]?.[date]) || 'present' }))
-          .filter(r => r.status !== 'present')
-        if (records.length > 0) {
-          await saveAttendanceRecords(session.id, records)
-          await completeSession(session.id)
-          savedCount++
-        }
+          .map(st => ({
+            session_id: sessionId,
+            student_id: st.id,
+            status: (attendance[st.id]?.[date] === 'justified' ? 'late' : attendance[st.id]?.[date]) || 'present'
+          }))
+      })
+
+      if (allRecords.length > 0) {
+        const supabase = createClient()
+        const { error } = await supabase
+          .from('attendance_records')
+          .upsert(allRecords, { onConflict: 'session_id,student_id' })
+        if (error) throw error
       }
 
+      const allSessionIds = [...new Set(changedDates.map(d => sessionsByDate.get(d)).filter(Boolean))] as string[]
+      await Promise.all(allSessionIds.map(id => completeSession(id)))
+
       setLastSaved(deepClone(attendance))
-      if (savedCount > 0) toast(`${savedCount} dia(s) salvo(s)`, 'success')
+      toast(`${changedDates.length} dia(s) salvo(s)`, 'success')
     } catch (err) {
       toast(err instanceof Error ? `Erro: ${err.message}` : 'Erro ao salvar faltas', 'error')
     } finally {
@@ -340,7 +350,7 @@ export default function ChamadaPage() {
 
   useEffect(() => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    saveTimeoutRef.current = setTimeout(() => saveAttendance(), 1000)
+    saveTimeoutRef.current = setTimeout(() => saveAttendance(), 300)
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current) }
   }, [attendance, saveAttendance])
 

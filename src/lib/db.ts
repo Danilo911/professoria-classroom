@@ -45,10 +45,12 @@ export async function getTeacher(): Promise<Teacher | null> {
 
 export async function getClasses(): Promise<Class[]> {
   const supabase = createClient()
-  const { data } = await supabase
+  const userId = await getUserId()
+  const { data, error } = await supabase
     .from('classes')
     .select('*')
-    .eq('is_active', true)
+    .eq('teacher_id', userId!)
+    .is('is_active', true)
     .order('name')
   return data || []
 }
