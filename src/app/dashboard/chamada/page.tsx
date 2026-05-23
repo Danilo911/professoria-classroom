@@ -1,11 +1,11 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Check, X, FileText, Minus, Calendar, XCircle, Umbrella, Users, Building, BookOpen } from 'lucide-react'
 import { getClasses, getClassStudents, getSessionsByRange, createAttendanceSession, saveAttendanceRecords, completeSession, getClassHolidays, upsertHoliday, deleteHoliday, getTransfers, saveTransfer as saveTransferDB, removeTransfer as removeTransferDB } from '@/lib/db'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/lib/toast'
-import { getTodayISO, formatDateBR, getMonthRange } from '@/lib/dates'
+import { getTodayISO, formatDateBR } from '@/lib/dates'
 import { deepClone } from '@/lib/utils'
 import type { Student, Class, AttendanceSession, AttendanceRecord } from '@/types'
 
@@ -25,7 +25,15 @@ function getSpecialDayInfo(type: string) {
   return SPECIAL_DAY_TYPES.find(t => t.key === type)
 }
 
-// getMonthRange now imported from @/lib/dates
+function getMonthRange(year: number, month: number): { start: string; end: string } {
+  const startY = month === 0 ? year : year
+  const startM = month
+  const lastDay = new Date(startY, startM + 1, 0).getDate()
+  return {
+    start: `${startY}-${String(startM + 1).padStart(2, '0')}-01`,
+    end: `${startY}-${String(startM + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  }
+}
 
 function isWeekend(dateStr: string): boolean {
   const d = new Date(dateStr + 'T12:00:00')
@@ -39,7 +47,7 @@ function formatDayHeader(date: string): { day: string; date: string } {
   return { day, date: dateStr }
 }
 
-const MONTHS = ['Janeiro', 'Fevereiro', 'MarÃ§o', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 export default function ChamadaPage() {
   const [classes, setClasses] = useState<Class[]>([])
@@ -108,7 +116,7 @@ export default function ChamadaPage() {
       const data = await getTransfers(classId)
       setTransferredDate(data)
     } catch {
-      toast('Erro ao carregar transferÃªncias', 'error')
+      toast('Erro ao carregar transferências', 'error')
     } finally {
       setTransferLoading(false)
     }
@@ -216,7 +224,7 @@ export default function ChamadaPage() {
       setTransferredDate(prev => ({ ...prev, [studentId]: transferDateInput }))
       toast('Aluno marcado como transferido', 'info')
       saveTransferDB(selectedClass, studentId, transferDateInput).catch(() => {
-        toast('Erro ao salvar transferÃªncia no servidor', 'error')
+        toast('Erro ao salvar transferência no servidor', 'error')
       })
     }
     setTransferMenu(null)
@@ -231,7 +239,7 @@ export default function ChamadaPage() {
     setTransferMenu(null)
     toast('Aluno restaurado', 'info')
     removeTransferDB(selectedClass, studentId).catch(() => {
-      toast('Erro ao remover transferÃªncia no servidor', 'error')
+      toast('Erro ao remover transferência no servidor', 'error')
     })
   }
 
@@ -388,7 +396,7 @@ export default function ChamadaPage() {
 
     // Check 5 total absences in the month
     const totalAbsent = statuses.filter(s => s === 'absent').length
-    if (totalAbsent >= 5) return `${totalAbsent} faltas no mÃªs`
+    if (totalAbsent >= 5) return `${totalAbsent} faltas no mês`
 
     return null
   }
@@ -417,7 +425,7 @@ export default function ChamadaPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {saving && <span className="mobile-hidden" style={{ fontSize: 12, color: 'var(--text-muted)' }}>Salvando...</span>}
-          {!saving && <span className="mobile-hidden" style={{ fontSize: 12, color: 'var(--success)' }}>âœ“ Salvo</span>}
+          {!saving && <span className="mobile-hidden" style={{ fontSize: 12, color: 'var(--success)' }}>✓ Salvo</span>}
         </div>
       </div>
 
@@ -432,16 +440,16 @@ export default function ChamadaPage() {
           </select>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, position: 'relative' }} ref={monthPickerRef}>
-          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(-1)} aria-label="MÃªs anterior"><ChevronLeft size={16} /></button>
+          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(-1)} aria-label="Mês anterior"><ChevronLeft size={16} /></button>
           <span
             onClick={() => setShowMonthPicker(!showMonthPicker)}
             style={{ fontSize: 13, fontWeight: 600, minWidth: 100, textAlign: 'center', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, whiteSpace: 'nowrap' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            {MONTHS[currentMonth.month].slice(0, 3)} {currentMonth.year} â–¾
+            {MONTHS[currentMonth.month].slice(0, 3)} {currentMonth.year} ▾
           </span>
-          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(1)} disabled={isFutureMonth} aria-label="PrÃ³ximo mÃªs"><ChevronRight size={16} /></button>
+          <button className="btn btn-icon btn-ghost" onClick={() => changeMonth(1)} disabled={isFutureMonth} aria-label="Próximo mês"><ChevronRight size={16} /></button>
           {showMonthPicker && (
             <div style={{
               position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
@@ -461,9 +469,9 @@ export default function ChamadaPage() {
                 </button>
               ))}
               <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', gap: 8, marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-                <button onClick={() => setCurrentMonth(p => ({ ...p, year: p.year - 1 }))} className="btn btn-sm btn-ghost">â—‚ {currentMonth.year - 1}</button>
+                <button onClick={() => setCurrentMonth(p => ({ ...p, year: p.year - 1 }))} className="btn btn-sm btn-ghost">◂ {currentMonth.year - 1}</button>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>{currentMonth.year}</span>
-                <button onClick={() => setCurrentMonth(p => ({ ...p, year: p.year + 1 }))} className="btn btn-sm btn-ghost">{currentMonth.year + 1} â–¸</button>
+                <button onClick={() => setCurrentMonth(p => ({ ...p, year: p.year + 1 }))} className="btn btn-sm btn-ghost">{currentMonth.year + 1} ▸</button>
               </div>
             </div>
           )}
@@ -484,7 +492,7 @@ export default function ChamadaPage() {
         <div className="card" style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum aluno matriculado nesta turma.</div>
       ) : (
         <>
-          {/* Mobile Card View (â‰¤768px) */}
+          {/* Mobile Card View (≤768px) */}
           <div className="mobile-only" style={{ width: '100%', overflow: 'hidden' }}>
             {/* Date picker for mobile */}
             <div style={{ marginBottom: 10, maxWidth: '100%', overflow: 'hidden' }}>
@@ -663,7 +671,7 @@ export default function ChamadaPage() {
                                 fontSize: 9, padding: '1px 6px', borderRadius: 8,
                                 background: 'var(--danger-light)', color: 'var(--danger)', fontWeight: 700, whiteSpace: 'nowrap',
                               }} title="Busca Ativa">
-                                âš 
+                                ⚠
                               </span>
                             )}
                           </div>
@@ -722,8 +730,8 @@ export default function ChamadaPage() {
           {alerts.length > 0 && (
             <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 8, background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 16 }}>âš ï¸</span>
-                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)' }}>Busca Ativa â€” {alerts.length} aluno(s)</span>
+                <span style={{ fontSize: 16 }}>⚠️</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)' }}>Busca Ativa — {alerts.length} aluno(s)</span>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {alerts.map(a => (
@@ -731,7 +739,7 @@ export default function ChamadaPage() {
                     fontSize: 12, padding: '4px 10px', borderRadius: 12,
                     background: 'rgba(239, 68, 68, 0.15)', color: 'var(--danger)', fontWeight: 500,
                   }}>
-                    {a.student.full_name.split(' ')[0]} â€” {a.alert}
+                    {a.student.full_name.split(' ')[0]} — {a.alert}
                   </span>
                 ))}
               </div>
@@ -813,7 +821,7 @@ export default function ChamadaPage() {
             </>
           ) : (
             <>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Data da transferÃªncia:</label>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Data da transferência:</label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
                   <Calendar size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
@@ -828,7 +836,7 @@ export default function ChamadaPage() {
                 </div>
               </div>
               <button onClick={confirmTransfer} className="btn btn-sm btn-primary" style={{ width: '100%', marginTop: 8 }}>
-                Confirmar transferÃªncia
+                Confirmar transferência
               </button>
             </>
           )}
