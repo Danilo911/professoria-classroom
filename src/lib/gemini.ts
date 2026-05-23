@@ -170,32 +170,32 @@ async function generateWithGroq(prompt: string): Promise<string> {
   return data.choices?.[0]?.message?.content || ''
 }
 
-// ==================== REPORT (Gemini → Groq fallback) ====================
+// ==================== REPORT (OpenCode Zen → Groq → Gemini) ====================
 
 export async function generateReport(request: GeminiReportRequest): Promise<{ content: string; provider: string }> {
   const prompt = buildReportPrompt(request)
 
   let lastError: Error | null = null
 
-  // Tenta Groq primeiro
-  if (process.env.GROQ_API_KEY) {
-    try {
-      const text = await generateWithGroq(prompt)
-      if (text) return { content: text, provider: 'groq' }
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('Groq falhou, tentando OpenCode Zen:', lastError.message)
-    }
-  }
-
-  // Tenta OpenCode Zen como segundo fallback
+  // Tenta OpenCode Zen (DeepSeek V4 Flash) primeiro
   if (process.env.OPENCODE_ZEN_API_KEY) {
     try {
       const text = await generateWithOpenCode(prompt)
       if (text) return { content: text, provider: 'opencode' }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('OpenCode Zen falhou, tentando Gemini:', lastError.message)
+      console.warn('OpenCode Zen falhou, tentando Groq:', lastError.message)
+    }
+  }
+
+  // Tenta Groq como segundo
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const text = await generateWithGroq(prompt)
+      if (text) return { content: text, provider: 'groq' }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      console.warn('Groq falhou, tentando Gemini:', lastError.message)
     }
   }
 
@@ -317,7 +317,21 @@ function parseGierResponse(text: string): GeminiGierResponse {
 export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGierResponse> {
   let lastError: Error | null = null
 
-  // Tenta Groq primeiro
+  // Tenta OpenCode Zen (DeepSeek V4 Flash) primeiro
+  if (process.env.OPENCODE_ZEN_API_KEY) {
+    try {
+      const prompt = request.imageBase64
+        ? `${GIER_PROMPT_BASE}${request.textDescription ? '\n\nDescrição fornecida pelo professor: ' + request.textDescription : ''}`
+        : `${GIER_PROMPT_TEXT}\n\nAtividade: ${request.textDescription}`
+      const text = await generateWithOpenCode(request.imageBase64 ? prompt : prompt)
+      if (text) return parseGierResponse(text)
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      console.warn('OpenCode Zen GIER falhou, tentando Groq:', lastError.message)
+    }
+  }
+
+  // Tenta Groq como segundo
   if (process.env.GROQ_API_KEY) {
     try {
       return await analisarComGroqGier(request)
@@ -327,7 +341,7 @@ export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGie
     }
   }
 
-  // Fallback para Gemini
+  // Fallback final para Gemini
   if (process.env.GEMINI_API_KEY) {
     try {
       let contents: string | Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = ''
