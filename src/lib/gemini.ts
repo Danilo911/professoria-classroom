@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
+import { generateWithOpenCode } from './opencode'
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
@@ -183,11 +184,22 @@ export async function generateReport(request: GeminiReportRequest): Promise<{ co
       if (text) return { content: text, provider: 'groq' }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('Groq falhou, tentando Gemini:', lastError.message)
+      console.warn('Groq falhou, tentando OpenCode Zen:', lastError.message)
     }
   }
 
-  // Fallback para Gemini
+  // Tenta OpenCode Zen como segundo fallback
+  if (process.env.OPENCODE_ZEN_API_KEY) {
+    try {
+      const text = await generateWithOpenCode(prompt)
+      if (text) return { content: text, provider: 'opencode' }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      console.warn('OpenCode Zen falhou, tentando Gemini:', lastError.message)
+    }
+  }
+
+  // Fallback final para Gemini
   if (process.env.GEMINI_API_KEY) {
     try {
       const text = await generateWithGemini(prompt)
@@ -198,7 +210,7 @@ export async function generateReport(request: GeminiReportRequest): Promise<{ co
   }
 
   if (lastError) throw lastError
-  throw new Error('Nenhuma chave de API configurada (GROQ_API_KEY ou GEMINI_API_KEY)')
+  throw new Error('Nenhuma chave de API configurada (GROQ_API_KEY, OPENCODE_ZEN_API_KEY ou GEMINI_API_KEY)')
 }
 
 const GIER_PROMPT_BASE = 'Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade (extraia da imagem se houver), 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente, 4) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.'
