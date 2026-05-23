@@ -840,8 +840,8 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Provedor IA</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {(['groq', 'opencode', 'gemini'] as const).map(p => (
-                    <label key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '6px 12px', borderRadius: 'var(--radius-md)', background: preferredProvider === p ? 'var(--primary-50)' : 'var(--bg-secondary)', border: preferredProvider === p ? '2px solid var(--primary)' : '2px solid transparent' }}>
-                      <input type="radio" name="provider" value={p} checked={preferredProvider === p} onChange={() => setPreferredProvider(p)} style={{ accentColor: 'var(--primary)' }} />
+                    <label key={p} className="btn btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', background: preferredProvider === p ? 'var(--primary)' : 'var(--bg-secondary)', color: preferredProvider === p ? '#fff' : 'var(--text)', border: 'none' }}>
+                      <input type="radio" name="provider" value={p} checked={preferredProvider === p} onChange={() => setPreferredProvider(p)} style={{ display: 'none' }} />
                       {p === 'groq' ? 'Groq (rápido)' : p === 'opencode' ? 'Qwen (qualidade)' : 'Gemini'}
                     </label>
                   ))}
@@ -904,8 +904,8 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Provedor IA</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 {(['groq', 'opencode', 'gemini'] as const).map(p => (
-                  <label key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '6px 12px', borderRadius: 'var(--radius-md)', background: preferredProvider === p ? 'var(--primary-50)' : 'var(--bg-secondary)', border: preferredProvider === p ? '2px solid var(--primary)' : '2px solid transparent' }}>
-                    <input type="radio" name="provider" value={p} checked={preferredProvider === p} onChange={() => setPreferredProvider(p)} style={{ accentColor: 'var(--primary)' }} />
+                  <label key={p} className="btn btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', background: preferredProvider === p ? 'var(--primary)' : 'var(--bg-secondary)', color: preferredProvider === p ? '#fff' : 'var(--text)', border: 'none' }}>
+                    <input type="radio" name="provider" value={p} checked={preferredProvider === p} onChange={() => setPreferredProvider(p)} style={{ display: 'none' }} />
                     {p === 'groq' ? 'Groq (rápido)' : p === 'opencode' ? 'Qwen (qualidade)' : 'Gemini'}
                   </label>
                 ))}
