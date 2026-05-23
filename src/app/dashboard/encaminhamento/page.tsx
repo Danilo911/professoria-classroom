@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Sparkles, Check, Copy, FileDown, FileText as FileTextIcon, User, X, ArrowLeft, ChevronRight, Brain, AlertTriangle, Zap, MessageCircle, Smile, Eye, Heart, Users, Mic, ClipboardCopy, Loader2 } from 'lucide-react'
+import { Sparkles, Check, Copy, FileDown, FileText as FileTextIcon, User, X, ArrowLeft, ChevronRight, Brain, AlertTriangle, Zap, MessageCircle, Smile, Eye, Heart, Users, Mic, ClipboardCopy, Loader2, Upload } from 'lucide-react'
 import { getClasses, getClassStudents, saveAIReport, getTeacher, getStudentObservations } from '@/lib/db'
 import { useToast } from '@/lib/toast'
 import { getTodayISO, formatDateBR } from '@/lib/dates'
@@ -335,21 +335,24 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
   const color = selectedType ? REFERRAL_COLORS[selectedType] : '#6366F1'
 
   function MicButton({ status, onToggle }: { status: string; onToggle: () => void }) {
+    const isLoading = status === 'loading'
+    const isUploading = status === 'uploading'
     return (
       <button
         type="button"
         onClick={onToggle}
-        title={status === 'loading' ? 'Carregando...' : status === 'listening' ? 'Parar' : 'Gravar por voz'}
+        disabled={isLoading || isUploading}
+        title={isLoading ? 'Carregando modelo...' : isUploading ? 'Enviando para transcrição...' : status === 'listening' ? 'Parar' : 'Gravar por voz'}
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           width: 28, height: 28, borderRadius: 6, border: 'none',
-          cursor: status === 'loading' ? 'wait' : 'pointer',
-          background: status === 'listening' ? 'var(--danger)' : status === 'loading' ? 'var(--warning)' : 'transparent',
-          color: status === 'listening' || status === 'loading' ? 'white' : 'var(--text-muted)',
+          cursor: isLoading || isUploading ? 'wait' : 'pointer',
+          background: status === 'listening' ? 'var(--danger)' : isLoading ? 'var(--warning)' : 'transparent',
+          color: status === 'listening' || isLoading ? 'white' : 'var(--text-muted)',
           transition: 'all 0.15s',
         }}
       >
-        {status === 'loading' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mic size={14} />}
+        {isLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : isUploading ? <Upload size={14} /> : <Mic size={14} />}
       </button>
     )
   }

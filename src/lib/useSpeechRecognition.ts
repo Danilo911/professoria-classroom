@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 
-type Status = 'idle' | 'loading' | 'listening' | 'error'
+type Status = 'idle' | 'loading' | 'listening' | 'uploading' | 'error'
 
 interface UseSpeechRecognitionReturn {
   status: Status
@@ -32,7 +32,7 @@ async function loadWhisper(): Promise<any> {
     try {
       const { pipeline, env } = await import('@xenova/transformers')
       env.allowLocalModels = false
-      
+
       let useCache = false
       try {
         useCache = typeof window !== 'undefined' && 'caches' in window && window.caches !== undefined
@@ -43,7 +43,7 @@ async function loadWhisper(): Promise<any> {
       whisperPipeline = pipe
       return pipe
     } catch (err) {
-      whisperLoading = null // Permite tentar carregar novamente
+      whisperLoading = null
       throw err
     }
   })()
@@ -58,7 +58,8 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
-  const useWhisperRef = useRef(false)
+  const useFallbackRef = useRef(false)
+  const startWhisperRef = useRef<(() => Promise<void>) | null>(null)
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
@@ -75,12 +76,85 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
     setStatus('idle')
   }, [])
 
-  const startWebSpeech = useCallback(() => {
-    // Brave bloqueia a API nativa do Google Speech, gerando erros do tipo 'Cannot convert undefined or null to object'.
-    // Portanto, pulamos para o Whisper diretamente em navegadores Brave.
-    if (isBraveBrowser()) {
+  // ─── 1. Groq whisper-large-v3 (record → API) ──────────────────────────
+
+  const startGroq = useCallback(async (): Promise<boolean> => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       return false
     }
+
+    setError(null)
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+
+      let mediaRecorder: MediaRecorder
+      try {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      } catch {
+        mediaRecorder = new MediaRecorder(stream)
+      }
+      mediaRecorderRef.current = mediaRecorder
+
+      const chunks: Blob[] = []
+      chunksRef.current = chunks
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data)
+      }
+
+      mediaRecorder.onstop = async () => {
+        try {
+          setStatus('uploading')
+          const mime = mediaRecorder.mimeType || 'audio/webm'
+          const blob = new Blob(chunks, { type: mime })
+
+          const formData = new FormData()
+          formData.append('audio', blob, 'recording.webm')
+
+          const res = await fetch('/api/groq/transcribe', {
+            method: 'POST',
+            body: formData,
+          })
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({ error: 'Erro desconhecido' }))
+            throw new Error(errData.error || `HTTP ${res.status}`)
+          }
+
+          const data = await res.json()
+          if (data.text?.trim()) {
+            onResult(data.text.trim())
+            setStatus('idle')
+          } else {
+            throw new Error('Texto vazio')
+          }
+        } catch (err) {
+          useFallbackRef.current = true
+          const msg = 'Groq indisponível, use o microfone novamente'
+          setError(msg)
+          onError?.(msg)
+          setStatus('error')
+        }
+        stream.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+      }
+
+      mediaRecorder.start()
+      setStatus('listening')
+      return true
+    } catch {
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+      return false
+    }
+  }, [onResult, onError])
+
+  // ─── 2. Web Speech API nativa ──────────────────────────────────────────
+
+  const startWebSpeech = useCallback(() => {
+    if (isBraveBrowser()) return false
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) return false
@@ -116,9 +190,9 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
           setError('Nenhuma fala detectada')
           setStatus('idle')
         } else if (errType === 'network') {
-          useWhisperRef.current = true
-          recognitionRef.current = null
-          startWhisper()
+          useFallbackRef.current = true
+          setError('Falha de rede no reconhecimento de voz')
+          startWhisperRef.current?.()
         } else if (errType !== 'aborted') {
           setError('Erro no reconhecimento')
           onError?.('Erro no reconhecimento')
@@ -127,7 +201,7 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
       }
 
       recognition.onend = () => {
-        if (status === 'listening') setStatus('idle')
+        setStatus('idle')
       }
 
       recognitionRef.current = recognition
@@ -138,7 +212,9 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
     } catch {
       return false
     }
-  }, [onResult, onError, status])
+  }, [onResult, onError])
+
+  // ─── 3. Whisper Tiny WASM (offline) ────────────────────────────────────
 
   const startWhisper = useCallback(async () => {
     setStatus('loading')
@@ -152,15 +228,14 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
-      
+
       let mediaRecorder: MediaRecorder
       try {
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
       } catch {
-        // Fallback caso mimeType 'audio/webm' não seja suportado
         mediaRecorder = new MediaRecorder(stream)
       }
-      
+
       const chunks: Blob[] = []
 
       mediaRecorder.ondataavailable = (e) => {
@@ -218,16 +293,24 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
     }
   }, [onResult, onError])
 
+  startWhisperRef.current = startWhisper
+
   const startListening = useCallback(() => {
-    if (!useWhisperRef.current) {
-      const ok = startWebSpeech()
-      if (ok) return
-    }
-    startWhisper()
-  }, [startWebSpeech, startWhisper])
+    // 1ª tentativa: Groq (whisper-large-v3 via API)
+    startGroq().then((started) => {
+      if (started) return
+      // 2ª tentativa: Web Speech nativa
+      if (!useFallbackRef.current) {
+        const ok = startWebSpeech()
+        if (ok) return
+      }
+      // 3ª tentativa: Whisper Tiny WASM
+      startWhisper()
+    })
+  }, [startGroq, startWebSpeech, startWhisper])
 
   const toggleListening = useCallback(() => {
-    if (status === 'listening' || status === 'loading') {
+    if (status === 'listening' || status === 'loading' || status === 'uploading') {
       stopListening()
     } else {
       startListening()
