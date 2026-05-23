@@ -1,13 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
+import { PlanilhaRequestSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   try {
-    const { fileBase64, fileName } = await request.json()
-    if (!fileBase64) {
-      return NextResponse.json({ error: 'Arquivo não enviado' }, { status: 400 })
+    const body = await request.json()
+
+    // Validate input
+    const parsed = PlanilhaRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Arquivo não enviado' }, { status: 400 })
     }
 
+    const { fileBase64, fileName } = body
     const buf = Buffer.from(fileBase64, 'base64')
     console.log('API planilha: recebido', fileName, buf.length, 'bytes')
 
@@ -23,7 +28,7 @@ export async function POST(request: NextRequest) {
         const row = data[i]
         const name = row?.[2]
         if (typeof name !== 'string') {
-          if (row) console.log(`  linha ${i}: sem nome na coluna 2, cols:`, Object.keys(row).length)
+          if (row) console.log(`  linha ${i}: sem nome na coluna 2, cols: ${Object.keys(row).length}`)
           continue
         }
         const trimmed = name.trim()

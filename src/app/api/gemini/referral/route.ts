@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { generateReport, type GeminiReportRequest } from '@/lib/gemini'
+import { generateReport } from '@/lib/gemini'
+import { ReferralRequestSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -22,10 +23,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: GeminiReportRequest & { classId?: string; referralType: string } = await request.json()
+    const body = await request.json()
 
-    if (!body.studentName || !body.referralType) {
-      return NextResponse.json({ error: 'Nome do aluno e tipo de encaminhamento são obrigatórios' }, { status: 400 })
+    // Validate input
+    const parsed = ReferralRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Dados inválidos' }, { status: 400 })
     }
 
     const { content, provider } = await generateReport({

@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { analyzeGier, type GeminiGierRequest } from '@/lib/gemini'
+import { GeminiGierRequestSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -22,13 +23,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: GeminiGierRequest = await request.json()
+    const body = await request.json()
 
-    if (!body.imageBase64 && !body.textDescription) {
-      return NextResponse.json({ error: 'Imagem ou texto é obrigatório' }, { status: 400 })
+    // Validate input
+    const parsed = GeminiGierRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Dados inválidos' }, { status: 400 })
     }
 
-    const result = await analyzeGier(body)
+    const result = await analyzeGier(body as GeminiGierRequest)
 
     return NextResponse.json(result)
   } catch (error) {

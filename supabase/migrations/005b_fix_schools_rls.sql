@@ -2,6 +2,8 @@
 -- Fix: Schools RLS policies
 -- =============================================
 
+ALTER TABLE IF EXISTS public.schools ENABLE ROW LEVEL SECURITY;
+
 -- Allow teachers to read their own school (via the school_id reference)
 CREATE POLICY "teachers_read_own_school" ON public.schools FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.teachers WHERE teachers.school_id = schools.id AND teachers.id = auth.uid())

@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { generateReport, buildReportPrompt, type GeminiReportRequest } from '@/lib/gemini'
+import { GeminiReportRequestSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -18,16 +19,19 @@ export async function POST(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
   }
 
   try {
     const body = await request.json()
-    const { provider: preferredProvider, classId, ...reportRequest } = body
 
-    if (!reportRequest.type) {
-      return NextResponse.json({ error: 'Tipo de relatório é obrigatório' }, { status: 400 })
+    // Validate input
+    const parsed = GeminiReportRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Dados invalidos' }, { status: 400 })
     }
+
+    const { provider: preferredProvider, classId, ...reportRequest } = body
 
     // Fetch QSN skills if classId is provided
     let qsnSkills: GeminiReportRequest['qsnSkills'] = undefined
@@ -47,10 +51,10 @@ export async function POST(request: NextRequest) {
           .limit(30)
 
         if (skills && skills.length > 0) {
-          // Filtra habilidades de Libras/Língua de Sinais (inclusão — só cita se pedido nas observações)
+          // Filtra habilidades de Libras/Lingua de Sinais (inclusao -- so cita se pedido nas observacoes)
           qsnSkills = skills.filter(s => {
             const text = `${s.description} ${s.axis || ''}`.toLowerCase()
-            return !text.includes('libras') && !text.includes('língua de sinais')
+            return !text.includes('libras') && !text.includes('lingua de sinais')
           })
         }
       }
@@ -64,7 +68,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('AI report error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erro ao gerar relatório' },
+      { error: error instanceof Error ? error.message : 'Erro ao gerar relatorio' },
       { status: 500 }
     )
   }

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+﻿import { z } from 'zod'
 
 export const GeminiGierRequestSchema = z.object({
   imageBase64: z.string().optional(),
@@ -10,12 +10,39 @@ export const GeminiGierRequestSchema = z.object({
 )
 
 export const GeminiReportRequestSchema = z.object({
-  type: z.enum(['descriptive_report', 'class_council', 'parent_meeting', 'pedagogical_suggestion']),
+  type: z.enum(['descriptive_report', 'class_council', 'parent_meeting', 'pedagogical_suggestion', 'referral']),
   studentName: z.string().optional(),
   className: z.string().optional(),
   period: z.string().optional(),
   observations: z.string().optional(),
   classId: z.string().optional(),
+  provider: z.string().optional(),
+  qsnSkills: z.array(z.object({
+    code: z.string(),
+    description: z.string(),
+    component: z.string(),
+    axis: z.string().optional(),
+    grade: z.string(),
+  })).optional(),
+})
+
+export const ReferralRequestSchema = z.object({
+  studentName: z.string().min(1, 'Nome do aluno é obrigatório'),
+  referralType: z.string().min(1, 'Tipo de encaminhamento é obrigatório'),
+  className: z.string().optional(),
+  observations: z.string().optional(),
+  classId: z.string().optional(),
+  provider: z.string().optional(),
+})
+
+export const PlanilhaRequestSchema = z.object({
+  fileBase64: z.string().min(1, 'Arquivo não enviado'),
+  fileName: z.string().optional(),
+})
+
+export const AddStudentRequestSchema = z.object({
+  classId: z.string().min(1, 'classId é obrigatório'),
+  fullName: z.string().min(1, 'fullName é obrigatório'),
 })
 
 export const SaveGierSchema = z.object({

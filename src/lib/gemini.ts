@@ -144,7 +144,7 @@ async function generateWithGroq(prompt: string): Promise<string> {
   if (!key) throw new Error('GROQ_API_KEY não configurada')
 
   const systemMsg = prompt.split('\n\nContexto:')[0]
-  const userMsg = 'Contexto:' + prompt.split('\n\nContexto:')[1] || prompt
+  const userMsg = 'Contexto:' + (prompt.split('\n\nContexto:')[1] || prompt)
 
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',

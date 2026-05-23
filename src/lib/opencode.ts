@@ -1,9 +1,9 @@
 // OpenCode Go — provedor OpenAI-compatível
 // Endpoint: https://opencode.ai/zen/go/v1/chat/completions
-// Modelo: deepseek-v4-flash
+// Modelo: qwen3.5-plus
 
 const OPENCODE_GO_URL = 'https://opencode.ai/zen/go/v1/chat/completions'
-const OPENCODE_GO_MODEL = 'deepseek-v4-flash'
+const OPENCODE_GO_MODEL = 'qwen3.5-plus'
 
 export async function generateWithOpenCode(prompt: string): Promise<string> {
   const key = process.env.OPENCODE_GO_API_KEY

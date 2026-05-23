@@ -1,6 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,13 +23,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
 
-    const admin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-
-    const { data: classData } = await admin
+    // Verify teacher owns the class (RLS also enforces this)
+    const { data: classData } = await supabase
       .from('classes')
       .select('teacher_id')
       .eq('id', classId)
@@ -39,22 +33,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sem permissão para esta turma' }, { status: 403 })
     }
 
-    const { data: student, error: studentError } = await admin
+    // Use the authenticated client (RLS policy teachers_insert_students
+    // allows INSERT with CHECK true, and teachers_manage_enrollments
+    // checks teacher_id via classes table)
+    const { data: student, error: studentError } = await supabase
       .from('students')
       .insert({ full_name: fullName.trim() })
       .select()
       .single()
     if (studentError) throw studentError
 
-    const { error: enrollError } = await admin
+    const { error: enrollError } = await supabase
       .from('enrollments')
       .insert({ class_id: classId, student_id: student.id })
     if (enrollError) {
-      await admin.from('students').delete().eq('id', student.id)
+      await supabase.from('students').delete().eq('id', student.id)
       throw enrollError
     }
 
-    await admin.rpc('increment_class_student_count', { class_id: classId })
+    await supabase.rpc('increment_class_student_count', { class_id: classId })
 
     return NextResponse.json(student)
   } catch (err) {
