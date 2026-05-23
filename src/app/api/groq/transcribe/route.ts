@@ -13,17 +13,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Arquivo de áudio não enviado' }, { status: 400 })
     }
 
-    const audioFormData = new FormData()
-    audioFormData.append('file', audio, 'recording.webm')
-    audioFormData.append('model', 'whisper-large-v3')
-    audioFormData.append('language', 'pt')
-    audioFormData.append('response_format', 'json')
+    const fd = new FormData()
+    fd.append('file', audio, 'recording.webm')
+    fd.append('model', 'whisper-large-v3-turbo')
+    fd.append('language', 'pt')
+    fd.append('response_format', 'json')
 
-    const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    let res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}` },
-      body: audioFormData,
+      body: fd,
     })
+
+    if (!res.ok) {
+      fd.set('model', 'whisper-large-v3')
+      res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+        body: fd,
+      })
+    }
 
     if (!res.ok) {
       const err = await res.text()

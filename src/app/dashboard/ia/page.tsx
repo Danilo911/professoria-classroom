@@ -37,7 +37,7 @@ export default function IAPage() {
   const [importando, setImportando] = useState(false)
   const [importandoDiario, setImportandoDiario] = useState(false)
   const [teacher, setTeacher] = useState<Teacher | null>(null)
-  const [preferredProvider, setPreferredProvider] = useState<'opencode' | 'groq' | 'gemini'>('groq')
+  const [preferredProvider, setPreferredProvider] = useState<'groq' | 'groq-qwen' | 'opencode' | 'gemini'>('groq')
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
@@ -839,10 +839,10 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Provedor IA</label>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  {(['groq', 'opencode', 'gemini'] as const).map(p => (
+                  {(['groq', 'groq-qwen', 'opencode', 'gemini'] as const).map(p => (
                     <label key={p} className="btn btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', background: preferredProvider === p ? 'var(--primary)' : 'var(--bg-secondary)', color: preferredProvider === p ? '#fff' : 'var(--text)', border: 'none' }}>
                       <input type="radio" name="provider" value={p} checked={preferredProvider === p} onChange={() => setPreferredProvider(p)} style={{ display: 'none' }} />
-                      {p === 'groq' ? 'Groq (rápido)' : p === 'opencode' ? 'Qwen (qualidade)' : 'Gemini'}
+                      {p === 'groq' ? 'Llama 3.3' : p === 'groq-qwen' ? 'Qwen 3-32b' : p === 'opencode' ? 'Qwen 3.5+' : 'Gemini'}
                     </label>
                   ))}
                 </div>
@@ -903,10 +903,10 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Provedor IA</label>
               <div style={{ display: 'flex', gap: 8 }}>
-                {(['groq', 'opencode', 'gemini'] as const).map(p => (
+                {(['groq', 'groq-qwen', 'opencode', 'gemini'] as const).map(p => (
                   <label key={p} className="btn btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', background: preferredProvider === p ? 'var(--primary)' : 'var(--bg-secondary)', color: preferredProvider === p ? '#fff' : 'var(--text)', border: 'none' }}>
                     <input type="radio" name="provider" value={p} checked={preferredProvider === p} onChange={() => setPreferredProvider(p)} style={{ display: 'none' }} />
-                    {p === 'groq' ? 'Groq (rápido)' : p === 'opencode' ? 'Qwen (qualidade)' : 'Gemini'}
+                    {p === 'groq' ? 'Llama 3.3' : p === 'groq-qwen' ? 'Qwen 3-32b' : p === 'opencode' ? 'Qwen 3.5+' : 'Gemini'}
                   </label>
                 ))}
               </div>
@@ -932,7 +932,8 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
             <div style={{ display: 'flex', gap: 6 }}>
               {resultProvider === 'gemini' && <span className="badge" style={{ background: 'rgba(66,133,244,0.15)', color: '#4285F4' }}>Gemini</span>}
               {resultProvider === 'opencode' && <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#10B981' }}>Qwen 3.5 Plus</span>}
-              {resultProvider === 'groq' && <span className="badge" style={{ background: 'rgba(249,115,22,0.15)', color: '#F97316' }}>Groq (Llama 3)</span>}
+              {resultProvider === 'groq' && <span className="badge" style={{ background: 'rgba(249,115,22,0.15)', color: '#F97316' }}>Llama 3.3</span>}
+              {resultProvider === 'groq-qwen' && <span className="badge" style={{ background: 'rgba(59,130,246,0.15)', color: '#3B82F6' }}>Qwen 3-32b</span>}
               {resultProvider === 'saved' && <span className="badge" style={{ background: 'var(--success-light)', color: 'var(--success)' }}>✓ Salvo</span>}
               {!resultProvider && <span className="badge badge-info">Rascunho</span>}
             </div>

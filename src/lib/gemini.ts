@@ -3,6 +3,7 @@ import { generateWithOpenCode } from './opencode'
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+const GROQ_QWEN_MODEL = 'qwen/qwen3-32b'
 const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct'
 
 export interface GeminiReportRequest {
@@ -171,6 +172,40 @@ async function generateWithGroq(prompt: string): Promise<string> {
   return data.choices?.[0]?.message?.content || ''
 }
 
+// ==================== GROQ QWEN ====================
+
+async function generateWithGroqQwen(prompt: string): Promise<string> {
+  const key = process.env.GROQ_API_KEY
+  if (!key) throw new Error('GROQ_API_KEY não configurada')
+
+  const systemMsg = prompt.split('\n\nContexto:')[0]
+  const userMsg = 'Contexto:' + (prompt.split('\n\nContexto:')[1] || prompt)
+
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: GROQ_QWEN_MODEL,
+      messages: [
+        { role: 'system', content: systemMsg },
+        { role: 'user', content: userMsg },
+      ],
+      temperature: 0.7,
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Groq Qwen error (${res.status}): ${err}`)
+  }
+
+  const data = await res.json()
+  return data.choices?.[0]?.message?.content || ''
+}
+
 // ==================== REPORT (provider order: based on preferredProvider) ====================
 
 export async function generateReport(request: GeminiReportRequest): Promise<{ content: string; provider: string }> {
@@ -179,8 +214,9 @@ export async function generateReport(request: GeminiReportRequest): Promise<{ co
   let lastError: Error | null = null
 
   const providers: { key: string; fn: (p: string) => Promise<string>; name: string }[] = [
-    { key: 'OPENCODE_GO_API_KEY', fn: generateWithOpenCode, name: 'opencode' },
     { key: 'GROQ_API_KEY', fn: generateWithGroq, name: 'groq' },
+    { key: 'GROQ_API_KEY', fn: generateWithGroqQwen, name: 'groq-qwen' },
+    { key: 'OPENCODE_GO_API_KEY', fn: generateWithOpenCode, name: 'opencode' },
     { key: 'GEMINI_API_KEY', fn: generateWithGemini, name: 'gemini' },
   ]
 
@@ -212,7 +248,7 @@ const GIER_PROMPT_BASE = 'Analise esta atividade escolar aplicada para a turma t
 
 const GIER_PROMPT_TEXT = 'Analise esta descrição de atividade escolar aplicada para a turma toda. Identifique: 1) O componente curricular, 2) A Unidade Temática Específica (UTE) correspondente, 3) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 4) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 5) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.'
 
-async function analisarComGroqGier(request: GeminiGierRequest): Promise<GeminiGierResponse> {
+async function analisarComGroqGier(request: GeminiGierRequest, modelOverride?: string): Promise<GeminiGierResponse> {
   const key = process.env.GROQ_API_KEY
   if (!key) throw new Error('GROQ_API_KEY não configurada')
 
@@ -248,7 +284,7 @@ async function analisarComGroqGier(request: GeminiGierRequest): Promise<GeminiGi
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: request.imageBase64 && request.mimeType !== 'application/pdf' ? GROQ_VISION_MODEL : GROQ_MODEL,
+      model: modelOverride || (request.imageBase64 && request.mimeType !== 'application/pdf' ? GROQ_VISION_MODEL : GROQ_MODEL),
       messages,
       temperature: 0.3,
     }),
@@ -311,37 +347,60 @@ function parseGierResponse(text: string): GeminiGierResponse {
 
 export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGierResponse> {
   let lastError: Error | null = null
+  const hasImage = !!(request.imageBase64 && request.mimeType)
 
-  // Tenta OpenCode Go (DeepSeek V4 Flash) primeiro
-  if (process.env.OPENCODE_GO_API_KEY) {
-    try {
-      const prompt = request.imageBase64
-        ? `${GIER_PROMPT_BASE}${request.textDescription ? '\n\nDescrição fornecida pelo professor: ' + request.textDescription : ''}`
-        : `${GIER_PROMPT_TEXT}\n\nAtividade: ${request.textDescription}`
-      const text = await generateWithOpenCode(request.imageBase64 ? prompt : prompt)
-      if (text) return parseGierResponse(text)
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('OpenCode Go GIER falhou, tentando Groq:', lastError.message)
-    }
-  }
-
-  // Tenta Groq como segundo
-  if (process.env.GROQ_API_KEY) {
+  // 1. Com imagem → Groq Llama 4 Scout (visão)
+  if (hasImage && process.env.GROQ_API_KEY) {
     try {
       return await analisarComGroqGier(request)
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('Groq GIER falhou, tentando Gemini:', lastError.message)
+      console.warn('Groq Vision GIER falhou, tentando texto:', lastError.message)
     }
   }
 
-  // Fallback final para Gemini
+  // 2. Groq Llama 3.3-70b (texto)
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const textReq = hasImage ? { textDescription: request.textDescription } : request
+      return await analisarComGroqGier(textReq as GeminiGierRequest, GROQ_MODEL)
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      console.warn('Groq Llama GIER falhou:', lastError.message)
+    }
+  }
+
+  // 3. Groq Qwen 3-32b (texto)
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const textReq = hasImage ? { textDescription: request.textDescription } : request
+      return await analisarComGroqGier(textReq as GeminiGierRequest, GROQ_QWEN_MODEL)
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      console.warn('Groq Qwen GIER falhou:', lastError.message)
+    }
+  }
+
+  // 4. OpenCode Qwen 3.5 Plus (texto)
+  if (process.env.OPENCODE_GO_API_KEY) {
+    try {
+      const prompt = hasImage
+        ? `${GIER_PROMPT_BASE}${request.textDescription ? '\n\nDescrição fornecida pelo professor: ' + request.textDescription : ''}`
+        : `${GIER_PROMPT_TEXT}\n\nAtividade: ${request.textDescription}`
+      const text = await generateWithOpenCode(prompt)
+      if (text) return parseGierResponse(text)
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      console.warn('OpenCode GIER falhou:', lastError.message)
+    }
+  }
+
+  // 5. Fallback Gemini
   if (process.env.GEMINI_API_KEY) {
     try {
       let contents: string | Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = ''
 
-        if (request.imageBase64 && request.mimeType) {
+      if (request.imageBase64 && request.mimeType) {
         const desc = request.textDescription ? `\n\nDescrição fornecida pelo professor: ${request.textDescription}` : ''
         contents = [
           { text: `${GIER_PROMPT_BASE}${desc}` },
@@ -366,5 +425,5 @@ export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGie
   }
 
   if (lastError) throw lastError
-  throw new Error('Nenhuma chave de API configurada (OPENCODE_GO_API_KEY, GROQ_API_KEY ou GEMINI_API_KEY)')
+  throw new Error('Nenhuma chave de API configurada (GROQ_API_KEY, OPENCODE_GO_API_KEY ou GEMINI_API_KEY)')
 }
