@@ -1,25 +1,25 @@
-// OpenCode Zen — provedor OpenAI-compatível
-// Endpoint: https://opencode.ai/zen/v1/chat/completions
-// Modelo gratuito: deepseek-v4-flash-free
+// OpenCode Go — provedor OpenAI-compatível
+// Endpoint: https://opencode.ai/zen/go/v1/chat/completions
+// Modelo: deepseek-v4-flash
 
-const OPENCODE_ZEN_URL = 'https://opencode.ai/zen/v1/chat/completions'
-const OPENCODE_ZEN_MODEL = 'deepseek-v4-flash-free'
+const OPENCODE_GO_URL = 'https://opencode.ai/zen/go/v1/chat/completions'
+const OPENCODE_GO_MODEL = 'deepseek-v4-flash'
 
 export async function generateWithOpenCode(prompt: string): Promise<string> {
-  const key = process.env.OPENCODE_ZEN_API_KEY
-  if (!key) throw new Error('OPENCODE_ZEN_API_KEY não configurada')
+  const key = process.env.OPENCODE_GO_API_KEY
+  if (!key) throw new Error('OPENCODE_GO_API_KEY não configurada')
 
   const systemMsg = prompt.split('\n\nContexto:')[0]
-  const userMsg = 'Contexto:' + prompt.split('\n\nContexto:')[1] || prompt
+  const userMsg = 'Contexto:' + (prompt.split('\n\nContexto:')[1] || prompt)
 
-  const res = await fetch(OPENCODE_ZEN_URL, {
+  const res = await fetch(OPENCODE_GO_URL, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${key}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: OPENCODE_ZEN_MODEL,
+      model: OPENCODE_GO_MODEL,
       messages: [
         { role: 'system', content: systemMsg },
         { role: 'user', content: userMsg },
@@ -30,7 +30,7 @@ export async function generateWithOpenCode(prompt: string): Promise<string> {
 
   if (!res.ok) {
     const err = await res.text()
-    throw new Error(`OpenCode Zen error (${res.status}): ${err}`)
+    throw new Error(`OpenCode Go error (${res.status}): ${err}`)
   }
 
   const data = await res.json()

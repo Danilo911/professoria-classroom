@@ -170,21 +170,21 @@ async function generateWithGroq(prompt: string): Promise<string> {
   return data.choices?.[0]?.message?.content || ''
 }
 
-// ==================== REPORT (OpenCode Zen → Groq → Gemini) ====================
+// ==================== REPORT (OpenCode Go → Groq → Gemini) ====================
 
 export async function generateReport(request: GeminiReportRequest): Promise<{ content: string; provider: string }> {
   const prompt = buildReportPrompt(request)
 
   let lastError: Error | null = null
 
-  // Tenta OpenCode Zen (DeepSeek V4 Flash) primeiro
-  if (process.env.OPENCODE_ZEN_API_KEY) {
+  // Tenta OpenCode Go (DeepSeek V4 Flash) primeiro
+  if (process.env.OPENCODE_GO_API_KEY) {
     try {
       const text = await generateWithOpenCode(prompt)
       if (text) return { content: text, provider: 'opencode' }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('OpenCode Zen falhou, tentando Groq:', lastError.message)
+      console.warn('OpenCode Go falhou, tentando Groq:', lastError.message)
     }
   }
 
@@ -210,7 +210,7 @@ export async function generateReport(request: GeminiReportRequest): Promise<{ co
   }
 
   if (lastError) throw lastError
-  throw new Error('Nenhuma chave de API configurada (GROQ_API_KEY, OPENCODE_ZEN_API_KEY ou GEMINI_API_KEY)')
+  throw new Error('Nenhuma chave de API configurada (OPENCODE_GO_API_KEY, GROQ_API_KEY ou GEMINI_API_KEY)')
 }
 
 const GIER_PROMPT_BASE = 'Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade (extraia da imagem se houver), 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente, 4) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.'
@@ -317,8 +317,8 @@ function parseGierResponse(text: string): GeminiGierResponse {
 export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGierResponse> {
   let lastError: Error | null = null
 
-  // Tenta OpenCode Zen (DeepSeek V4 Flash) primeiro
-  if (process.env.OPENCODE_ZEN_API_KEY) {
+  // Tenta OpenCode Go (DeepSeek V4 Flash) primeiro
+  if (process.env.OPENCODE_GO_API_KEY) {
     try {
       const prompt = request.imageBase64
         ? `${GIER_PROMPT_BASE}${request.textDescription ? '\n\nDescrição fornecida pelo professor: ' + request.textDescription : ''}`
@@ -327,7 +327,7 @@ export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGie
       if (text) return parseGierResponse(text)
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('OpenCode Zen GIER falhou, tentando Groq:', lastError.message)
+      console.warn('OpenCode Go GIER falhou, tentando Groq:', lastError.message)
     }
   }
 
@@ -371,5 +371,5 @@ export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGie
   }
 
   if (lastError) throw lastError
-  throw new Error('Nenhuma chave de API configurada (GROQ_API_KEY ou GEMINI_API_KEY)')
+  throw new Error('Nenhuma chave de API configurada (OPENCODE_GO_API_KEY, GROQ_API_KEY ou GEMINI_API_KEY)')
 }
