@@ -33,9 +33,12 @@ export default function IAPage() {
   const [salvandoFinal, setSalvandoFinal] = useState(false)
   const [savedReports, setSavedReports] = useState<AIReport[]>([])
   const [copiado, setCopiado] = useState(false)
+  const [promptCopiado, setPromptCopiado] = useState(false)
   const [importando, setImportando] = useState(false)
   const [importandoDiario, setImportandoDiario] = useState(false)
   const [teacher, setTeacher] = useState<Teacher | null>(null)
+  const [preferredProvider, setPreferredProvider] = useState<'opencode' | 'groq' | 'gemini'>('groq')
+  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
@@ -279,6 +282,7 @@ export default function IAPage() {
           studentName: formData.studentName,
           period: getPeriodLabel(),
           observations: formData.observations,
+          provider: preferredProvider,
         }),
       })
 
@@ -303,6 +307,7 @@ export default function IAPage() {
       setResult(contentWithHeader)
       setEditableResult(contentWithHeader)
       setResultProvider(data.provider || null)
+      setGeneratedPrompt(data.prompt || null)
       setShowGenForm(false)
       if (isDescriptive) closeStudentReports()
       if (isCouncil) closeBimesterReports()
@@ -318,6 +323,7 @@ export default function IAPage() {
     setResult(null)
     setEditableResult('')
     setResultProvider(null)
+    setGeneratedPrompt(null)
     setError(null)
     setShowStudentList(false)
     setClassStudents([])
@@ -407,6 +413,14 @@ export default function IAPage() {
     setCopiado(true)
     toast('Copiado!', 'success')
     setTimeout(() => setCopiado(false), 2000)
+  }
+
+  function handleCopyPrompt() {
+    if (!generatedPrompt) return
+    navigator.clipboard.writeText(generatedPrompt)
+    setPromptCopiado(true)
+    toast('Prompt copiado! Cole em um chatbot para refinar.', 'success')
+    setTimeout(() => setPromptCopiado(false), 2000)
   }
 
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -822,13 +836,27 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
                 </div>
                 <textarea className="input" rows={4} placeholder={isDescriptive ? 'Informações relevantes sobre o aluno...' : 'Informações relevantes sobre a turma...'} value={formData.observations} onChange={e => setFormData(prev => ({ ...prev, observations: e.target.value }))} />
               </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Provedor IA</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {(['groq', 'opencode', 'gemini'] as const).map(p => (
+                    <label key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '6px 12px', borderRadius: 'var(--radius-md)', background: preferredProvider === p ? 'var(--primary-50)' : 'var(--bg-secondary)', border: preferredProvider === p ? '2px solid var(--primary)' : '2px solid transparent' }}>
+                      <input type="radio" name="provider" value={p} checked={preferredProvider === p} onChange={() => setPreferredProvider(p)} style={{ accentColor: 'var(--primary)' }} />
+                      {p === 'groq' ? 'Groq (rápido)' : p === 'opencode' ? 'Qwen (qualidade)' : 'Gemini'}
+                    </label>
+                  ))}
+                </div>
+              </div>
               {error && (
                 <div style={{ padding: 12, background: 'var(--danger-50)', borderRadius: 'var(--radius-md)', fontSize: 13, color: 'var(--danger)' }}>{error}</div>
               )}
               {editingReport ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                   <button onClick={closeGenForm} className="btn btn-secondary">Cancelar</button>
-                  <button onClick={handleCopy} className="btn btn-secondary">{copiado ? <Check size={16} /> : <Copy size={16} />} {copiado ? 'Copiado' : 'Copiar'}</button>
+            <button onClick={handleCopy} className="btn btn-secondary">{copiado ? <Check size={16} /> : <Copy size={16} />} {copiado ? 'Copiado' : 'Copiar'}</button>
+            {generatedPrompt && (
+              <button onClick={handleCopyPrompt} className="btn btn-secondary" style={{ background: 'rgba(139,92,246,0.1)', color: '#8B5CF6' }}>{promptCopiado ? <Check size={16} /> : <Copy size={16} />} {promptCopiado ? 'Prompt copiado' : 'Copiar prompt'}</button>
+            )}
                   <button onClick={handleExportTxt} className="btn btn-secondary"><FileDown size={16} /> TXT</button>
                   <button onClick={handleExportDoc} className="btn btn-secondary"><FileDown size={16} /> DOC</button>
                   <button onClick={handleSaveFinal} className="btn btn-primary" disabled={salvandoFinal} style={{ marginLeft: 'auto' }}>
@@ -872,6 +900,17 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Observações adicionais (opcional)</label>
               <textarea className="input" rows={4} placeholder="Informações relevantes..." value={formData.observations} onChange={e => setFormData(prev => ({ ...prev, observations: e.target.value }))} />
             </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Provedor IA</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['groq', 'opencode', 'gemini'] as const).map(p => (
+                  <label key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '6px 12px', borderRadius: 'var(--radius-md)', background: preferredProvider === p ? 'var(--primary-50)' : 'var(--bg-secondary)', border: preferredProvider === p ? '2px solid var(--primary)' : '2px solid transparent' }}>
+                    <input type="radio" name="provider" value={p} checked={preferredProvider === p} onChange={() => setPreferredProvider(p)} style={{ accentColor: 'var(--primary)' }} />
+                    {p === 'groq' ? 'Groq (rápido)' : p === 'opencode' ? 'Qwen (qualidade)' : 'Gemini'}
+                  </label>
+                ))}
+              </div>
+            </div>
             {error && (
               <div style={{ padding: 12, background: 'var(--danger-50)', borderRadius: 'var(--radius-md)', fontSize: 13, color: 'var(--danger)' }}>{error}</div>
             )}
@@ -892,6 +931,7 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
             <h2 style={{ fontSize: 18 }}>Resultado</h2>
             <div style={{ display: 'flex', gap: 6 }}>
               {resultProvider === 'gemini' && <span className="badge" style={{ background: 'rgba(66,133,244,0.15)', color: '#4285F4' }}>Gemini</span>}
+              {resultProvider === 'opencode' && <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#10B981' }}>Qwen 3.5 Plus</span>}
               {resultProvider === 'groq' && <span className="badge" style={{ background: 'rgba(249,115,22,0.15)', color: '#F97316' }}>Groq (Llama 3)</span>}
               {resultProvider === 'saved' && <span className="badge" style={{ background: 'var(--success-light)', color: 'var(--success)' }}>✓ Salvo</span>}
               {!resultProvider && <span className="badge badge-info">Rascunho</span>}

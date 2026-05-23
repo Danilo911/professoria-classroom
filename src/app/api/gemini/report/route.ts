@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { generateReport, type GeminiReportRequest } from '@/lib/gemini'
+import { generateReport, buildReportPrompt, type GeminiReportRequest } from '@/lib/gemini'
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -22,19 +22,20 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body: GeminiReportRequest & { classId?: string } = await request.json()
+    const body = await request.json()
+    const { provider: preferredProvider, classId, ...reportRequest } = body
 
-    if (!body.type) {
+    if (!reportRequest.type) {
       return NextResponse.json({ error: 'Tipo de relatório é obrigatório' }, { status: 400 })
     }
 
     // Fetch QSN skills if classId is provided
     let qsnSkills: GeminiReportRequest['qsnSkills'] = undefined
-    if (body.classId) {
+    if (classId) {
       const { data: classData } = await supabase
         .from('classes')
         .select('grade')
-        .eq('id', body.classId)
+        .eq('id', classId)
         .single()
 
       if (classData?.grade) {
@@ -55,9 +56,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { content, provider } = await generateReport({ ...body, qsnSkills })
+    const prompt = buildReportPrompt({ ...reportRequest, qsnSkills } as GeminiReportRequest)
 
-    return NextResponse.json({ content, provider, corrected: false })
+    const { content, provider } = await generateReport({ ...reportRequest, qsnSkills, preferredProvider })
+
+    return NextResponse.json({ content, prompt, provider, corrected: false })
   } catch (error) {
     console.error('AI report error:', error)
     return NextResponse.json(

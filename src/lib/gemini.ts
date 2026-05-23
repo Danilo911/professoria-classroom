@@ -13,6 +13,7 @@ export interface GeminiReportRequest {
   observations?: string
   referralType?: string
   qsnSkills?: { code: string; description: string; component: string; axis?: string; grade: string }[]
+  preferredProvider?: 'opencode' | 'groq' | 'gemini'
 }
 
 export interface GeminiGierRequest {
@@ -72,7 +73,7 @@ const SYSTEM_PROMPTS = {
 IMPORTANTE: O tipo específico de encaminhamento (suspeita ou especialidade) é metadado do cabeçalho do documento. NÃO mencione o tipo de encaminhamento no corpo do texto.`,
 }
 
-function buildReportPrompt(request: GeminiReportRequest): string {
+export function buildReportPrompt(request: GeminiReportRequest): string {
   const systemPrompt = SYSTEM_PROMPTS[request.type]
 
   let referralSection = ''
@@ -170,42 +171,36 @@ async function generateWithGroq(prompt: string): Promise<string> {
   return data.choices?.[0]?.message?.content || ''
 }
 
-// ==================== REPORT (OpenCode Go → Groq → Gemini) ====================
+// ==================== REPORT (provider order: based on preferredProvider) ====================
 
 export async function generateReport(request: GeminiReportRequest): Promise<{ content: string; provider: string }> {
   const prompt = buildReportPrompt(request)
 
   let lastError: Error | null = null
 
-  // Tenta OpenCode Go (DeepSeek V4 Flash) primeiro
-  if (process.env.OPENCODE_GO_API_KEY) {
-    try {
-      const text = await generateWithOpenCode(prompt)
-      if (text) return { content: text, provider: 'opencode' }
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('OpenCode Go falhou, tentando Groq:', lastError.message)
+  const providers: { key: string; fn: (p: string) => Promise<string>; name: string }[] = [
+    { key: 'OPENCODE_GO_API_KEY', fn: generateWithOpenCode, name: 'opencode' },
+    { key: 'GROQ_API_KEY', fn: generateWithGroq, name: 'groq' },
+    { key: 'GEMINI_API_KEY', fn: generateWithGemini, name: 'gemini' },
+  ]
+
+  // Reorder based on preferredProvider
+  if (request.preferredProvider) {
+    const idx = providers.findIndex(p => p.name === request.preferredProvider)
+    if (idx > 0) {
+      const [preferred] = providers.splice(idx, 1)
+      providers.unshift(preferred)
     }
   }
 
-  // Tenta Groq como segundo
-  if (process.env.GROQ_API_KEY) {
+  for (const provider of providers) {
+    if (!process.env[provider.key]) continue
     try {
-      const text = await generateWithGroq(prompt)
-      if (text) return { content: text, provider: 'groq' }
+      const text = await provider.fn(prompt)
+      if (text) return { content: text, provider: provider.name }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
-      console.warn('Groq falhou, tentando Gemini:', lastError.message)
-    }
-  }
-
-  // Fallback final para Gemini
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      const text = await generateWithGemini(prompt)
-      if (text) return { content: text, provider: 'gemini' }
-    } catch (err) {
-      throw err
+      console.warn(`${provider.name} falhou:`, lastError.message)
     }
   }
 
