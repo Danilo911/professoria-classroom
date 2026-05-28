@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, X, Check, Calendar, FileText, Download, Edit2 } from 'lucide-react'
-import { getClasses, getClassStudents, getDiaryEntries, createDiaryEntry, updateDiaryEntry, getDiaryEntryByDate, getStudentObservations, getBatchStudentObservations, createStudentObservation, getGrades, upsertGrade, getClassSummary } from '@/lib/db'
+import { Plus, X, Check, Calendar, FileText, Download, Edit2, Trash2 } from 'lucide-react'
+import { getClasses, getClassStudents, getDiaryEntries, createDiaryEntry, updateDiaryEntry, getDiaryEntryByDate, getStudentObservations, getBatchStudentObservations, createStudentObservation, updateStudentObservation, deleteStudentObservation, getGrades, upsertGrade, getClassSummary } from '@/lib/db'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { useToast } from '@/lib/toast'
 import { MicButton } from '@/components/ui/MicButton'
@@ -60,6 +60,7 @@ export default function DiarioPage() {
   const [obsMenu, setObsMenu] = useState<{ studentId: string; x: number; y: number; view: 'menu' | 'form' | 'history' } | null>(null)
   const [menuStyle, setMenuStyle] = useState<{ left: number; top: number }>({ left: 0, top: 0 })
   const [obsForm, setObsForm] = useState({ category: 'general', severity: 'info', content: '' })
+  const [editingObsId, setEditingObsId] = useState<string | null>(null)
   const { toast } = useToast()
   const today = getTodayISO()
   const menuRef = useRef<HTMLDivElement>(null)
@@ -186,6 +187,7 @@ export default function DiarioPage() {
     setObsMenu({ studentId, x: rect.left, y: rect.bottom + 4, view: 'menu' })
     setMenuStyle({ left: rect.left, top: rect.bottom + 4 })
     setObsForm({ category: 'general', severity: 'info', content: '' })
+    setEditingObsId(null)
   }
 
   async function handleCreateObservation(e: React.FormEvent) {
@@ -193,22 +195,57 @@ export default function DiarioPage() {
     if (!obsMenu) return
     setSavingObs(true)
     try {
-      const obs = await createStudentObservation({
-        student_id: obsMenu.studentId, class_id: selectedClass,
-        category: obsForm.category, content: obsForm.content,
-        severity: obsForm.severity,
-      })
-      setObsMap(prev => ({
-        ...prev,
-        [obsMenu.studentId]: [obs, ...(prev[obsMenu.studentId] || [])],
-      }))
+      if (editingObsId) {
+        // Update existing observation
+        const obs = await updateStudentObservation(editingObsId, {
+          category: obsForm.category, content: obsForm.content, severity: obsForm.severity,
+        })
+        setObsMap(prev => ({
+          ...prev,
+          [obsMenu.studentId]: (prev[obsMenu.studentId] || []).map(o => o.id === obs.id ? obs : o),
+        }))
+        setEditingObsId(null)
+        toast('Registro atualizado!', 'success')
+      } else {
+        // Create new observation
+        const obs = await createStudentObservation({
+          student_id: obsMenu.studentId, class_id: selectedClass,
+          category: obsForm.category, content: obsForm.content,
+          severity: obsForm.severity,
+        })
+        setObsMap(prev => ({
+          ...prev,
+          [obsMenu.studentId]: [obs, ...(prev[obsMenu.studentId] || [])],
+        }))
+        toast('Registro salvo!', 'success')
+      }
       setObsMenu(null)
-      toast('Registro salvo!', 'success')
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao adicionar observação', 'error')
+      toast(err instanceof Error ? err.message : 'Erro ao salvar observação', 'error')
     } finally {
       setSavingObs(false)
     }
+  }
+
+  async function handleDeleteObservation(obsId: string) {
+    if (!confirm('Excluir este registro?')) return
+    if (!obsMenu) return
+    try {
+      await deleteStudentObservation(obsId)
+      setObsMap(prev => ({
+        ...prev,
+        [obsMenu.studentId]: (prev[obsMenu.studentId] || []).filter(o => o.id !== obsId),
+      }))
+      toast('Registro excluído.', 'info')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao excluir', 'error')
+    }
+  }
+
+  function handleEditObservation(obs: StudentObservation) {
+    setEditingObsId(obs.id)
+    setObsForm({ category: obs.category, severity: obs.severity || 'info', content: obs.content })
+    if (obsMenu) setObsMenu({ ...obsMenu, view: 'form' })
   }
 
   async function handleSaveEntry(e: React.FormEvent) {
@@ -630,7 +667,7 @@ export default function DiarioPage() {
 
           {obsMenu.view === 'menu' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <button className="btn btn-sm btn-primary" onClick={() => setObsMenu(prev => prev ? { ...prev, view: 'form' } : null)}
+              <button className="btn btn-sm btn-primary" onClick={() => { setEditingObsId(null); setObsForm({ category: 'general', severity: 'info', content: '' }); setObsMenu(prev => prev ? { ...prev, view: 'form' } : null) }}
                 style={{ justifyContent: 'flex-start' }}>
                 <Plus size={16} /> Novo registro
               </button>
@@ -676,7 +713,7 @@ export default function DiarioPage() {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" className="btn btn-sm btn-secondary" onClick={() => setObsMenu(null)} style={{ flex: 1 }}>Cancelar</button>
                 <button type="submit" className="btn btn-sm btn-primary" disabled={savingObs || !obsForm.content.trim()} style={{ flex: 1 }}>
-                  {savingObs ? '...' : 'Salvar'}
+                  {savingObs ? '...' : editingObsId ? 'Atualizar' : 'Salvar'}
                 </button>
               </div>
             </form>
@@ -697,6 +734,12 @@ export default function DiarioPage() {
                       <span className="badge" style={{ background: `${cat.color}15`, color: cat.color, fontSize: 10 }}>{cat.label}</span>
                       <span className="badge" style={{ background: `${sev.color}15`, color: sev.color, fontSize: 10 }}>{sev.label}</span>
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto' }}>{formatDateBR(obs.date)}</span>
+                      <button onClick={() => handleEditObservation(obs)} className="btn btn-icon btn-ghost" style={{ width: 22, height: 22, padding: 0 }} title="Editar">
+                        <Edit2 size={11} />
+                      </button>
+                      <button onClick={() => handleDeleteObservation(obs.id)} className="btn btn-icon btn-ghost" style={{ width: 22, height: 22, padding: 0, color: 'var(--danger)' }} title="Excluir">
+                        <Trash2 size={11} />
+                      </button>
                     </div>
                     <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, margin: 0 }}>{obs.content}</p>
                   </div>

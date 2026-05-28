@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Sparkles, FileText, Users, MessageSquare, Lightbulb, ClipboardCopy, Check, FileDown, Upload, Copy, Plus, ChevronRight, User, X, FileText as FileTextIcon, ArrowLeft, Calendar } from 'lucide-react'
+import { Sparkles, FileText, Users, MessageSquare, Lightbulb, ClipboardCopy, Check, FileDown, Upload, Copy, Plus, ChevronRight, User, X, FileText as FileTextIcon, ArrowLeft, Calendar, Mic } from 'lucide-react'
 import { getClasses, getClassStudents, getStudentObservations, saveAIReport, getAIReports, getDiaryEntries, getTeacher } from '@/lib/db'
 import { useToast } from '@/lib/toast'
 import { getTodayISO, formatDateBR, formatDateTimeBR } from '@/lib/dates'
+import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
+import { MicButton } from '@/components/ui/MicButton'
 import type { Class, Student, AIReport, Teacher } from '@/types'
 
 const reportTypes = [
@@ -41,6 +43,16 @@ export default function IAPage() {
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const obsSpeech = useSpeechRecognition(
+    (text) => {
+      const cleaned = text.charAt(0).toUpperCase() + text.slice(1)
+      setFormData(prev => ({
+        ...prev,
+        observations: prev.observations ? prev.observations + ' ' + cleaned : cleaned,
+      }))
+    },
+    (err) => toast(err, 'error')
+  )
 
   // Parecer Descritivo states
   const [showStudentList, setShowStudentList] = useState(false)
@@ -834,7 +846,14 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
                     </button>
                   )}
                 </div>
-                <textarea className="input" rows={4} placeholder={isDescriptive ? 'Informações relevantes sobre o aluno...' : 'Informações relevantes sobre a turma...'} value={formData.observations} onChange={e => setFormData(prev => ({ ...prev, observations: e.target.value }))} />
+                <div style={{ position: 'relative' }}>
+                  <textarea className="input" rows={4} placeholder={isDescriptive ? 'Informações relevantes sobre o aluno...' : 'Informações relevantes sobre a turma...'} value={formData.observations} onChange={e => setFormData(prev => ({ ...prev, observations: e.target.value }))} style={{ paddingRight: 36 }} />
+                  <MicButton
+                    status={obsSpeech.status}
+                    onToggle={obsSpeech.toggleListening}
+                    style={{ position: 'absolute', right: 8, bottom: 8 }}
+                  />
+                </div>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Provedor IA</label>
@@ -896,9 +915,13 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
                 {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Observações adicionais (opcional)</label>
-              <textarea className="input" rows={4} placeholder="Informações relevantes..." value={formData.observations} onChange={e => setFormData(prev => ({ ...prev, observations: e.target.value }))} />
+            <div style={{ position: 'relative' }}>
+              <textarea className="input" rows={4} placeholder="Informações relevantes..." value={formData.observations} onChange={e => setFormData(prev => ({ ...prev, observations: e.target.value }))} style={{ paddingRight: 36 }} />
+              <MicButton
+                status={obsSpeech.status}
+                onToggle={obsSpeech.toggleListening}
+                style={{ position: 'absolute', right: 8, bottom: 8 }}
+              />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-secondary)' }}>Provedor IA</label>

@@ -482,6 +482,33 @@ export async function createStudentObservation(input: {
   return data
 }
 
+export async function updateStudentObservation(id: string, input: {
+  category?: string; content?: string; severity?: string; is_private?: boolean
+}): Promise<StudentObservation> {
+  const supabase = createClient()
+  const userId = await getUserId()
+  const { data, error } = await supabase
+    .from('student_observations')
+    .update(input)
+    .eq('id', id)
+    .eq('teacher_id', userId!)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteStudentObservation(id: string): Promise<void> {
+  const supabase = createClient()
+  const userId = await getUserId()
+  const { error } = await supabase
+    .from('student_observations')
+    .delete()
+    .eq('id', id)
+    .eq('teacher_id', userId!)
+  if (error) throw error
+}
+
 // ==================== GRADES ====================
 
 export async function getGrades(filters: { student_id?: string; class_id?: string; bimestre?: number }): Promise<Grade[]> {
