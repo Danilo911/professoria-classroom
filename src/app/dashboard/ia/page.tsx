@@ -515,9 +515,9 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
   }
 
   async function handleSaveFinal() {
-    let content = result || formData.observations
+    let content = editableResult || result || formData.observations
     if (!content) return
-    if (!result && formData.observations) {
+    if (!content.startsWith('PREFEITURA')) {
       content = `${gerarCabecalho()}\n\n${content}`
     }
     setSalvandoFinal(true)

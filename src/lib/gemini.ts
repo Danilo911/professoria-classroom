@@ -1,5 +1,4 @@
 import { GoogleGenAI } from '@google/genai'
-import { generateWithOpenCode } from './opencode'
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
@@ -14,7 +13,7 @@ export interface GeminiReportRequest {
   observations?: string
   referralType?: string
   qsnSkills?: { code: string; description: string; component: string; axis?: string; grade: string }[]
-  preferredProvider?: 'opencode' | 'groq' | 'gemini'
+  preferredProvider?: 'opencode' | 'groq' | 'groq-qwen' | 'gemini'
 }
 
 export interface GeminiGierRequest {
@@ -30,6 +29,14 @@ export interface GeminiGierResponse {
   saber: string
   apr: string
   description: string
+}
+
+const REPORT_TEMPERATURES: Record<string, number> = {
+  descriptive_report: 0.5,
+  class_council: 0.5,
+  parent_meeting: 0.6,
+  pedagogical_suggestion: 0.7,
+  referral: 0.3,
 }
 
 const SYSTEM_PROMPTS = {
@@ -55,12 +62,12 @@ Siga rigorosamente as seguintes diretrizes:
 4. ESTILO E LINGUAGEM:
    - Utilizar linguagem formal, técnica e clara. Evitar jargões desnecessariamente complexos para que a família compreenda perfeitamente o documento, mas mantendo a sofisticação e elegância profissional.`,
 
-  class_council: `Você é um assistente pedagógico especializado na gestão de aprendizagem de Guarulhos-SP. Gere uma análise técnica para o conselho de classe de uma turma, em português do Brasil. O documento deve incluir:
-- Uma análise geral do desempenho e da maturidade acadêmica da turma
-- Pontos fortes coletivos evidenciados no período
-- Principais desafios pedagógicos e disciplinares identificados
-- Sugestões práticas de intervenções pedagógicas e estratégias de recuperação contínua
-- Dados qualitativos e insights prontos para serem apresentados em reuniões pedagógicas`,
+  class_council: `Você é um assistente pedagógico especializado na gestão de aprendizagem de Guarulhos-SP. Gere uma análise técnica para o conselho de classe de uma turma, em português do Brasil. Siga a seguinte estrutura de 4 parágrafos:
+
+- Parágrafo 1 (Panorama Geral): Uma análise do desempenho acadêmico geral da turma, nível de maturidade pedagógica, engajamento coletivo e cumprimento dos objetivos de aprendizagem previstos para o período.
+- Parágrafo 2 (Pontos Fortes e Avanços): Destaque os principais progressos coletivos observados em termos cognitivos, socioemocionais e de participação.
+- Parágrafo 3 (Desafios e Intervenções Necessárias): Identifique as principais dificuldades pedagógicas e disciplinares enfrentadas pela turma, e sugira estratégias práticas de intervenção e recuperação contínua.
+- Parágrafo 4 (Fechamento e Recomendações): Conclua com insights prontos para apresentação em reuniões pedagógicas, recomendações para o próximo período e sugestões de articulação com as famílias.`,
 
   parent_meeting: `Você é um professor e orientador pedagógico. Gere um roteiro estruturado para reunião de pais individualizada ou coletiva, em português do Brasil. O roteiro deve conter:
 - Uma abertura acolhedora, empática e que estabeleça parceria com a família
@@ -74,9 +81,13 @@ Siga rigorosamente as seguintes diretrizes:
 - Referência clara às habilidades trabalhadas (descrevendo-as textualmente, sem códigos alfanuméricos)
 - Materiais necessários para a execução
 - Adaptações de inclusão detalhadas para alunos com necessidades educacionais especiais (como autismo, TDAH, deficiência visual/auditiva)
-- Estratégias e critérios formativos de avaliação das atividades`,
+- Estratégias e critérios formativos de avaliação das atividades
 
-  referral: `Você é um professor titular da rede municipal de Guarulhos-SP redigindo um documento formal de encaminhamento para avaliação especializada (médica, psicológica, fonoaudiológica ou multidisciplinar).
+REGRAS CRÍTICAS:
+- NUNCA cite códigos alfanuméricos de habilidades (ex: EF12LP01). Descreva a habilidade de forma textual e fluida.
+- NUNCA cite habilidades exclusivas de Libras ou Língua de Sinais, exceto se houver indicação específica e contextual.`,
+
+   referral: `Você é um professor titular da rede municipal de Guarulhos-SP redigindo um documento formal de encaminhamento para avaliação especializada (médica, psicológica, fonoaudiológica ou multidisciplinar).
 Redija o corpo do texto de forma extremamente profissional, objetiva, formal e baseada em evidências observáveis, em português do Brasil, seguindo as seguintes regras obrigatórias:
 
 1. PROIBIÇÃO DE DIAGNÓSTICO: Como docente, você NÃO tem competência clínica para diagnosticar ou levantar suspeitas médicas diretas.
@@ -87,7 +98,7 @@ Redija o corpo do texto de forma extremamente profissional, objetiva, formal e b
 
 2. ESTRUTURA DO TEXTO (3 a 4 parágrafos bem definidos):
    - Parágrafo 1 (Apresentação Geral e Comportamento): Descreva o perfil geral do aluno em sala de aula, sua energia, envolvimento inicial e a presença de dificuldades atencionais ou de autorregulação que impactam seu foco e permanência nas atividades.
-   - Parágrafo 2 (Evidências e Exemplos Concretos): Descreva detalhadamente os comportamentos, traços e características observados com exemplos práticos do cotidiano escolar (ex: agitação motora em determinada aula, desatenção ao seguir instruções, interrupção de colegas, dispersão constante, perda de materiais). Divirta-se nos detalhes de forma objetiva e sem rotular.
+   - Parágrafo 2 (Evidências e Exemplos Concretos): Descreva detalhadamente os comportamentos, traços e características observados com exemplos práticos do cotidiano escolar (ex: agitação motora em determinada aula, desatenção ao seguir instruções, interrupção de colegas, dispersão constante, perda de materiais). Descreva os detalhes de forma objetiva e sem rotular.
    - Parágrafo 3 (Estratégias Pedagógicas Utilizadas): Relate quais estratégias e intervenções pedagógicas o professor já implementou em sala de aula para tentar minimizar essas dificuldades (ex: mudança de assento para a frente da sala, fragmentação de tarefas em etapas menores, feedbacks constantes, estímulos visuais ou rotinas estruturadas).
    - Parágrafo 4 (Conclusão e Encaminhamento): Explique que, mesmo com as adaptações pedagógicas realizadas, o aluno continua apresentando barreiras significativas em sua aprendizagem e desenvolvimento socioemocional. Conclua justificando que este encaminhamento visa uma avaliação diagnóstica aprofundada por profissionais especializados (e equipe multidisciplinar) para fundamentar intervenções conjuntas mais eficazes.
 
@@ -97,153 +108,122 @@ Redija o corpo do texto de forma extremamente profissional, objetiva, formal e b
    - Não inclua o cabeçalho (nome do aluno, turma, escola, etc.) no corpo do texto, pois o sistema já adiciona isso automaticamente. Comece o texto diretamente pelo corpo do relatório.`,
 }
 
+const REFERRAL_LABELS: Record<string, string> = {
+  tea: 'TEA (Transtorno do Espectro Autista)',
+  tod: 'TOD (Transtorno Opositivo-Desafiador)',
+  tdah: 'TDAH (Déficit de Atenção / Hiperatividade)',
+  fono: 'Avaliação Fonoaudiológica',
+  dentista: 'Avaliação Odontológica',
+  oftalmo: 'Avaliação Oftalmológica',
+  psicologo: 'Avaliação Psicológica',
+  multi: 'Equipe Multidisciplinar',
+  outro: 'Outro encaminhamento',
+}
+
+const PROMPT_SEPARATOR = '\n\n===== DADOS DO RELATÓRIO =====\n'
+
 export function buildReportPrompt(request: GeminiReportRequest): string {
   const systemPrompt = SYSTEM_PROMPTS[request.type]
+  const userPrompt = buildReportUserContext(request)
+  return systemPrompt + PROMPT_SEPARATOR + userPrompt
+}
 
-  let referralSection = ''
+function buildReportUserContext(request: GeminiReportRequest): string {
+  let lines = `Tipo de relatório: ${request.type}`
+  if (request.studentName) lines += `\nAluno: ${request.studentName}`
+  if (request.className) lines += `\nTurma: ${request.className}`
+  if (request.period) lines += `\nPeríodo: ${request.period}`
+  if (request.observations) lines += `\nObservações adicionais: ${request.observations}`
   if (request.type === 'referral' && request.referralType) {
-    const labels: Record<string, string> = {
-      tea: 'Suspeita de TEA (Transtorno do Espectro Autista)',
-      tod: 'Suspeita de TOD (Transtorno Opositivo-Desafiador)',
-      tdah: 'Suspeita de TDAH (Déficit de Atenção / Hiperatividade)',
-      fono: 'Avaliação Fonoaudiológica',
-      dentista: 'Avaliação Odontológica',
-      oftalmo: 'Avaliação Oftalmológica',
-      psicologo: 'Avaliação Psicológica',
-      multi: 'Equipe Multidisciplinar',
-      outro: 'Outro encaminhamento',
-    }
-    referralSection = `\n\nContexto — motivo do encaminhamento (NÃO incluir no corpo do texto): ${labels[request.referralType] || request.referralType}`
+    lines += `\nMotivo do encaminhamento: ${REFERRAL_LABELS[request.referralType] || request.referralType}`
   }
-
-  let qsnSection = ''
   if (request.qsnSkills && request.qsnSkills.length > 0) {
     const skillsByComponent: Record<string, { description: string; axis?: string }[]> = {}
     for (const skill of request.qsnSkills) {
       if (!skillsByComponent[skill.component]) skillsByComponent[skill.component] = []
       skillsByComponent[skill.component].push({ description: skill.description, axis: skill.axis })
     }
-    const lines: string[] = ['Habilidades do QSN (Quadro de Saberes Necessários de Guarulhos) aplicáveis a esta turma:']
+    lines += '\n\nHabilidades do QSN (Quadro de Saberes Necessários de Guarulhos) aplicáveis a esta turma:'
     for (const [component, skills] of Object.entries(skillsByComponent)) {
       const examples = skills.slice(0, 10).map(s =>
         `  - ${s.axis ? `[${s.axis}] ` : ''}${s.description.substring(0, 150)}`
       ).join('\n')
-      lines.push(`\n${component} (${skills.length} habilidades):\n${examples}`)
+      lines += `\n${component} (${skills.length} habilidades):\n${examples}`
     }
-    lines.push('\nIMPORTANTE: O QSN não utiliza códigos de habilidades. Ao citar uma habilidade no relatório, use apenas a descrição textual, sem códigos alfanuméricos.')
-    qsnSection = '\n\n' + lines.join('\n')
+    lines += '\n\nIMPORTANTE: O QSN não utiliza códigos de habilidades. Ao citar uma habilidade no relatório, use apenas a descrição textual, sem códigos alfanuméricos.'
   }
-
-  const context = `
-Contexto:
-- Tipo de relatório: ${request.type}
-${request.studentName ? `- Aluno: ${request.studentName}` : ''}
-${request.className ? `- Turma: ${request.className}` : ''}
-${request.period ? `- Período: ${request.period}` : ''}
-${request.observations ? `- Observações adicionais: ${request.observations}` : ''}${referralSection}${qsnSection}
-
-Gere o relatório solicitado seguindo as diretrizes acima.`
-
-  return `${systemPrompt}\n\n${context}`
+  return lines
 }
 
-// ==================== GEMINI ====================
+async function callChatCompletion(url: string, apiKey: string, model: string, systemMsg: string, userMsg: string, temperature: number): Promise<string> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemMsg },
+        { role: 'user', content: userMsg },
+      ],
+      temperature,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`API error (${res.status}): ${err}`)
+  }
+  const data = await res.json()
+  return data.choices?.[0]?.message?.content || ''
+}
 
-async function generateWithGemini(prompt: string): Promise<string> {
+async function generateWithGroq(prompt: string, temperature: number): Promise<string> {
+  const parts = prompt.split(PROMPT_SEPARATOR)
+  const key = process.env.GROQ_API_KEY
+  if (!key) throw new Error('GROQ_API_KEY não configurada')
+  return callChatCompletion('https://api.groq.com/openai/v1/chat/completions', key, GROQ_MODEL, parts[0], parts[1] || '', temperature)
+}
+
+async function generateWithGroqQwen(prompt: string, temperature: number): Promise<string> {
+  const parts = prompt.split(PROMPT_SEPARATOR)
+  const key = process.env.GROQ_API_KEY
+  if (!key) throw new Error('GROQ_API_KEY não configurada')
+  return callChatCompletion('https://api.groq.com/openai/v1/chat/completions', key, GROQ_QWEN_MODEL, parts[0], parts[1] || '', temperature)
+}
+
+async function generateWithOpenCode(prompt: string, temperature: number): Promise<string> {
+  const parts = prompt.split(PROMPT_SEPARATOR)
+  const key = process.env.OPENCODE_GO_API_KEY
+  if (!key) throw new Error('OPENCODE_GO_API_KEY não configurada')
+  return callChatCompletion('https://opencode.ai/zen/go/v1/chat/completions', key, 'qwen3.5-plus', parts[0], parts[1] || '', temperature)
+}
+
+async function generateWithGemini(prompt: string, _temperature: number): Promise<string> {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error('GEMINI_API_KEY não configurada')
-
   const ai = new GoogleGenAI({ apiKey: key })
   const response = await ai.models.generateContent({
     model: GEMINI_MODEL,
-    contents: prompt,
+    contents: prompt.replace(PROMPT_SEPARATOR, '\n\n'),
   })
   return response.text || ''
 }
 
-// ==================== GROQ ====================
-
-async function generateWithGroq(prompt: string): Promise<string> {
-  const key = process.env.GROQ_API_KEY
-  if (!key) throw new Error('GROQ_API_KEY não configurada')
-
-  const systemMsg = prompt.split('\n\nContexto:')[0]
-  const userMsg = 'Contexto:' + (prompt.split('\n\nContexto:')[1] || prompt)
-
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [
-        { role: 'system', content: systemMsg },
-        { role: 'user', content: userMsg },
-      ],
-      temperature: 0.7,
-    }),
-  })
-
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Groq error (${res.status}): ${err}`)
-  }
-
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content || ''
-}
-
-// ==================== GROQ QWEN ====================
-
-async function generateWithGroqQwen(prompt: string): Promise<string> {
-  const key = process.env.GROQ_API_KEY
-  if (!key) throw new Error('GROQ_API_KEY não configurada')
-
-  const systemMsg = prompt.split('\n\nContexto:')[0]
-  const userMsg = 'Contexto:' + (prompt.split('\n\nContexto:')[1] || prompt)
-
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: GROQ_QWEN_MODEL,
-      messages: [
-        { role: 'system', content: systemMsg },
-        { role: 'user', content: userMsg },
-      ],
-      temperature: 0.7,
-    }),
-  })
-
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Groq Qwen error (${res.status}): ${err}`)
-  }
-
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content || ''
-}
-
-// ==================== REPORT (provider order: based on preferredProvider) ====================
-
 export async function generateReport(request: GeminiReportRequest): Promise<{ content: string; provider: string }> {
   const prompt = buildReportPrompt(request)
+  const temperature = REPORT_TEMPERATURES[request.type] ?? 0.5
 
   let lastError: Error | null = null
 
-  const providers: { key: string; fn: (p: string) => Promise<string>; name: string }[] = [
+  const providers: { key: string; fn: (p: string, t: number) => Promise<string>; name: string }[] = [
     { key: 'GROQ_API_KEY', fn: generateWithGroq, name: 'groq' },
     { key: 'GROQ_API_KEY', fn: generateWithGroqQwen, name: 'groq-qwen' },
     { key: 'OPENCODE_GO_API_KEY', fn: generateWithOpenCode, name: 'opencode' },
     { key: 'GEMINI_API_KEY', fn: generateWithGemini, name: 'gemini' },
   ]
 
-  // Reorder based on preferredProvider
   if (request.preferredProvider) {
     const idx = providers.findIndex(p => p.name === request.preferredProvider)
     if (idx > 0) {
@@ -255,7 +235,7 @@ export async function generateReport(request: GeminiReportRequest): Promise<{ co
   for (const provider of providers) {
     if (!process.env[provider.key]) continue
     try {
-      const text = await provider.fn(prompt)
+      const text = await provider.fn(prompt, temperature)
       if (text) return { content: text, provider: provider.name }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
@@ -264,7 +244,7 @@ export async function generateReport(request: GeminiReportRequest): Promise<{ co
   }
 
   if (lastError) throw lastError
-  throw new Error('Nenhuma chave de API configurada (OPENCODE_GO_API_KEY, GROQ_API_KEY ou GEMINI_API_KEY)')
+  throw new Error('Nenhuma chave de API configurada')
 }
 
 const GIER_PROMPT_BASE = 'Analise esta atividade escolar aplicada para a turma toda. Identifique: 1) O texto completo da atividade (extraia da imagem se houver), 2) O componente curricular, 3) A Unidade Temática Específica (UTE) correspondente, 4) O SABER (apenas a descrição do saber/objetivo, SEM códigos), 5) A APRENDIZAGEM (APR) específica trabalhada nesta atividade, 6) Uma descrição pedagógica geral para o GIER (Registro de Itinerário Educacional e de Resultados) relatando o que foi trabalhado coletivamente com a turma. Responda em JSON com as chaves: extractedText, component, ute, saber, apr, description. Responda APENAS o JSON, sem markdown ou texto adicional.'
@@ -345,9 +325,16 @@ async function analisarComGroqGier(request: GeminiGierRequest, modelOverride?: s
 }
 
 function parseGierResponse(text: string): GeminiGierResponse {
-  const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
-  try {
-    const parsed = JSON.parse(cleaned)
+  const noMarkdown = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+  const tryParse = (s: string) => {
+    try { return JSON.parse(s) } catch { return null }
+  }
+  let parsed = tryParse(noMarkdown)
+  if (!parsed) {
+    const jsonMatch = noMarkdown.match(/\{[\s\S]*?\}/)
+    if (jsonMatch) parsed = tryParse(jsonMatch[0])
+  }
+  if (parsed) {
     return {
       extractedText: parsed.extractedText || '',
       component: parsed.component || '',
@@ -356,15 +343,14 @@ function parseGierResponse(text: string): GeminiGierResponse {
       apr: parsed.apr || '',
       description: parsed.description || '',
     }
-  } catch {
-    return {
-      extractedText: text,
-      component: 'Não identificado',
-      ute: 'Não identificada',
-      saber: 'Não identificado',
-      apr: 'Não identificada',
-      description: text,
-    }
+  }
+  return {
+    extractedText: text,
+    component: 'Não identificado',
+    ute: 'Não identificada',
+    saber: 'Não identificado',
+    apr: 'Não identificada',
+    description: text,
   }
 }
 
@@ -407,11 +393,24 @@ export async function analyzeGier(request: GeminiGierRequest): Promise<GeminiGie
   // 4. OpenCode Qwen 3.5 Plus (texto)
   if (process.env.OPENCODE_GO_API_KEY) {
     try {
-      const prompt = hasImage
+      const gierPrompt = hasImage
         ? `${GIER_PROMPT_BASE}${request.textDescription ? '\n\nDescrição fornecida pelo professor: ' + request.textDescription : ''}`
         : `${GIER_PROMPT_TEXT}\n\nAtividade: ${request.textDescription}`
-      const text = await generateWithOpenCode(prompt)
-      if (text) return parseGierResponse(text)
+      const key = process.env.OPENCODE_GO_API_KEY
+      const res = await fetch('https://opencode.ai/zen/go/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'qwen3.5-plus',
+          messages: [{ role: 'user', content: gierPrompt }],
+          temperature: 0.3,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const text = data.choices?.[0]?.message?.content || ''
+        if (text) return parseGierResponse(text)
+      }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
       console.warn('OpenCode GIER falhou:', lastError.message)
