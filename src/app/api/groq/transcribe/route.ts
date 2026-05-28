@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     fd.append('model', 'whisper-large-v3-turbo')
     fd.append('language', 'pt')
     fd.append('response_format', 'json')
+    fd.append('temperature', '0')
 
     let res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
