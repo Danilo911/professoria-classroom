@@ -105,6 +105,10 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
       }
 
       mediaRecorder.onstop = async () => {
+        // Stop stream tracks immediately so browser mic indicator goes off
+        stream.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+
         try {
           setStatus('uploading')
           const mime = mediaRecorder.mimeType || 'audio/webm'
@@ -131,14 +135,42 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
             throw new Error('Texto vazio')
           }
         } catch (err) {
+          console.warn('Groq failed, trying local Whisper fallback...', err)
           useFallbackRef.current = true
-          const msg = 'Groq indisponível, use o microfone novamente'
-          setError(msg)
-          onError?.(msg)
-          setStatus('error')
+
+          try {
+            setStatus('loading')
+            const pipe = await loadWhisper()
+            const mime = mediaRecorder.mimeType || 'audio/webm'
+            const blob = new Blob(chunks, { type: mime })
+            const arrayBuffer = await blob.arrayBuffer()
+            const float32Data = await decodeAudio(arrayBuffer)
+
+            const result = await pipe(float32Data, {
+              language: 'portuguese',
+              task: 'transcribe',
+            })
+
+            if (result && result.text && result.text.trim()) {
+              onResult(result.text.trim())
+              setStatus('idle')
+              setError(null)
+            } else {
+              throw new Error('Não foi possível transcrever o áudio localmente')
+            }
+          } catch (localErr) {
+            const rawMsg = localErr instanceof Error ? localErr.message : String(localErr)
+            let msg = 'Groq indisponível, use o microfone novamente'
+            if (isBraveBrowser() || rawMsg.includes('undefined') || rawMsg.includes('null') || rawMsg.includes('convert')) {
+              msg = 'O reconhecimento de voz não é suportado no Brave devido a restrições de privacidade nos Shields. Use o Google Chrome ou desative os Brave Shields.'
+            } else {
+              msg = 'O reconhecimento de voz via API falhou e o reconhecimento local falhou. Tente novamente.'
+            }
+            setError(msg)
+            onError?.(msg)
+            setStatus('error')
+          }
         }
-        stream.getTracks().forEach(t => t.stop())
-        streamRef.current = null
       }
 
       mediaRecorder.start()
@@ -296,14 +328,20 @@ function useSpeechRecognition(onResult: (text: string) => void, onError?: (error
   startWhisperRef.current = startWhisper
 
   const startListening = useCallback(() => {
+    // Se o Groq já falhou anteriormente nesta sessão, pula ele e vai direto para a Web Speech ou Whisper
+    if (useFallbackRef.current) {
+      const ok = startWebSpeech()
+      if (ok) return
+      startWhisper()
+      return
+    }
+
     // 1ª tentativa: Groq (whisper-large-v3 via API)
     startGroq().then((started) => {
       if (started) return
       // 2ª tentativa: Web Speech nativa
-      if (!useFallbackRef.current) {
-        const ok = startWebSpeech()
-        if (ok) return
-      }
+      const ok = startWebSpeech()
+      if (ok) return
       // 3ª tentativa: Whisper Tiny WASM
       startWhisper()
     })
