@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Sparkles, Check, Copy, FileDown, FileText as FileTextIcon, User, X, ArrowLeft, ChevronRight, Brain, AlertTriangle, Zap, MessageCircle, Smile, Eye, Heart, Users, Mic, ClipboardCopy, Loader2, Upload } from 'lucide-react'
-import { getClasses, getClassStudents, saveAIReport, getTeacher, getStudentObservations } from '@/lib/db'
+import { Sparkles, Check, Copy, FileDown, FileText as FileTextIcon, User, X, ArrowLeft, ChevronRight, Brain, AlertTriangle, Zap, MessageCircle, Smile, Eye, Heart, Users, Mic, ClipboardCopy, Loader2, Upload, Clock, Plus } from 'lucide-react'
+import { getClasses, getClassStudents, saveAIReport, getAIReports, getTeacher, getStudentObservations } from '@/lib/db'
 import { useToast } from '@/lib/toast'
-import { getTodayISO, formatDateBR } from '@/lib/dates'
+import { getTodayISO, formatDateBR, formatDateTimeBR } from '@/lib/dates'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
 import { REFERRAL_TYPES } from '@/types/database'
-import type { Class, Student, Teacher } from '@/types'
+import type { Class, Student, Teacher, AIReport } from '@/types'
 
 const REFERRAL_ICONS: Record<string, typeof Brain> = {
   tea: Brain,
@@ -66,6 +66,11 @@ export default function EncaminhamentoPage() {
   const [copiado, setCopiado] = useState(false)
   const [salvandoFinal, setSalvandoFinal] = useState(false)
 
+  // Saved history
+  const [savedReferrals, setSavedReferrals] = useState<AIReport[]>([])
+  const [loadingSaved, setLoadingSaved] = useState(false)
+  const [showSavedList, setShowSavedList] = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
@@ -79,7 +84,33 @@ export default function EncaminhamentoPage() {
   useEffect(() => {
     getClasses().then(data => setClasses(data))
     getTeacher().then(data => setTeacher(data))
+    fetchSavedReferrals()
   }, [])
+
+  async function fetchSavedReferrals() {
+    setLoadingSaved(true)
+    try {
+      const reports = await getAIReports({ type: 'referral' })
+      setSavedReferrals(reports)
+    } catch {
+      // silent
+    } finally {
+      setLoadingSaved(false)
+    }
+  }
+
+  function handleSelectReferral(report: AIReport) {
+    const ctx = report.prompt_context as any
+    setSelectedType(ctx?.referralType || null)
+    setSelectedStudent({
+      student: { id: report.student_id || '', full_name: ctx?.studentName || '' } as Student,
+      class: { id: report.class_id || '', name: ctx?.className || '' } as Class,
+    })
+    setResult(report.content)
+    setEditableResult(report.content)
+    setResultProvider('saved')
+    setShowSavedList(false)
+  }
 
   async function loadClassStudents() {
     setLoadingStudents(true)
@@ -296,7 +327,7 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
     if (!result || !selectedStudent || !selectedType) return
     setSalvandoFinal(true)
     try {
-      await saveAIReport({
+      const saved = await saveAIReport({
         class_id: selectedStudent.class.id,
         student_id: selectedStudent.student.id,
         type: 'referral',
@@ -308,6 +339,7 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
         },
       })
       setResultProvider('saved')
+      setSavedReferrals(prev => [saved, ...prev])
       toast('Encaminhamento salvo!', 'success')
     } catch {
       toast('Erro ao salvar encaminhamento', 'error')
@@ -369,7 +401,13 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
 
       {/* ===== TIPOS DE ENCAMINHAMENTO ===== */}
       {!selectedType && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+        <div>
+          {savedReferrals.length > 0 && (
+            <button onClick={() => setShowSavedList(true)} className="btn btn-secondary" style={{ marginBottom: 16, fontSize: 13 }}>
+              <Clock size={16} /> Histórico ({savedReferrals.length})
+            </button>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
           {REFERRAL_TYPES.map(t => {
             const ICmp = REFERRAL_ICONS[t.key] || FileTextIcon
             const c = REFERRAL_COLORS[t.key] || '#6B7280'
@@ -384,6 +422,60 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
               </button>
             )
           })}
+        </div>
+        </div>
+      )}
+
+      {/* ===== HISTÓRICO ===== */}
+      {showSavedList && (
+        <div style={overlayStyle} onClick={() => setShowSavedList(false)}>
+          <div style={{ ...modalStyle, maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+            <div style={modalHeaderStyle}>
+              <h2 style={{ fontSize: 16, fontWeight: 600 }}>Histórico de Encaminhamentos</h2>
+              <button onClick={() => setShowSavedList(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex' }}>
+                <X size={20} style={{ color: 'var(--text-secondary)' }} />
+              </button>
+            </div>
+            <div style={modalBodyStyle}>
+              {savedReferrals.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-secondary)' }}>
+                  <FileTextIcon size={32} style={{ marginBottom: 8, opacity: 0.3 }} />
+                  <p>Nenhum encaminhamento salvo.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {savedReferrals.map(r => {
+                    const ctx = r.prompt_context as any
+                    const typeLabel = REFERRAL_TYPES.find(t => t.key === ctx?.referralType)
+                    return (
+                      <button key={r.id} onClick={() => handleSelectReferral(r)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', textAlign: 'left' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <FileTextIcon size={18} style={{ color: 'var(--primary)' }} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>{ctx?.studentName || 'Aluno'}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                            {typeLabel?.label || ctx?.referralType} — {ctx?.className}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{formatDateTimeBR(r.created_at)}</div>
+                        </div>
+                        <span className="badge" style={{
+                          background: r.status === 'final' ? 'var(--success-light)' : 'var(--warning-light)',
+                          color: r.status === 'final' ? 'var(--success)' : 'var(--warning)',
+                          fontSize: 11,
+                        }}>
+                          {r.status === 'final' ? 'Final' : 'Rascunho'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -503,6 +595,8 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
             <div style={{ display: 'flex', gap: 6 }}>
               {resultProvider === 'gemini' && <span className="badge" style={{ background: 'rgba(66,133,244,0.15)', color: '#4285F4' }}>Gemini</span>}
               {resultProvider === 'groq' && <span className="badge" style={{ background: 'rgba(249,115,22,0.15)', color: '#F97316' }}>Groq (Llama 3)</span>}
+              {resultProvider === 'groq-qwen' && <span className="badge" style={{ background: 'rgba(59,130,246,0.15)', color: '#3B82F6' }}>Qwen 3-32b</span>}
+              {resultProvider === 'opencode' && <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#10B981' }}>Qwen 3.5 Plus</span>}
               {resultProvider === 'saved' && <span className="badge" style={{ background: 'var(--success-light)', color: 'var(--success)' }}>✓ Salvo</span>}
               {!resultProvider && <span className="badge badge-info">Rascunho</span>}
             </div>
