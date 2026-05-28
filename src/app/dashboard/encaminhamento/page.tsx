@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Sparkles, Check, Copy, FileDown, FileText as FileTextIcon, User, X, ArrowLeft, ChevronRight, Brain, AlertTriangle, Zap, MessageCircle, Smile, Eye, Heart, Users, Mic, ClipboardCopy, Loader2, Upload, Clock, Plus } from 'lucide-react'
-import { getClasses, getClassStudents, saveAIReport, getAIReports, getTeacher, getStudentObservations } from '@/lib/db'
+import { Sparkles, Check, Copy, FileDown, FileText as FileTextIcon, User, X, ArrowLeft, ChevronRight, Brain, AlertTriangle, Zap, MessageCircle, Smile, Eye, Heart, Users, Mic, ClipboardCopy, Loader2, Upload, Clock, Plus, Trash2 } from 'lucide-react'
+import { getClasses, getClassStudents, saveAIReport, updateAIReport, deleteAIReport, getAIReports, getTeacher, getStudentObservations } from '@/lib/db'
 import { useToast } from '@/lib/toast'
 import { getTodayISO, formatDateBR, formatDateTimeBR } from '@/lib/dates'
 import { useSpeechRecognition } from '@/lib/useSpeechRecognition'
@@ -70,6 +70,7 @@ export default function EncaminhamentoPage() {
   const [savedReferrals, setSavedReferrals] = useState<AIReport[]>([])
   const [loadingSaved, setLoadingSaved] = useState(false)
   const [showSavedList, setShowSavedList] = useState(false)
+  const [editingReportId, setEditingReportId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
@@ -108,6 +109,7 @@ export default function EncaminhamentoPage() {
     })
     setResult(report.content)
     setEditableResult(report.content)
+    setEditingReportId(report.id)
     setResultProvider('saved')
     setShowSavedList(false)
   }
@@ -163,6 +165,7 @@ export default function EncaminhamentoPage() {
     setResultProvider(null)
     setError(null)
     setObservations('')
+    setEditingReportId(null)
   }
 
   function gerarCabecalho(): string {
@@ -327,24 +330,43 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
     if (!result || !selectedStudent || !selectedType) return
     setSalvandoFinal(true)
     try {
-      const saved = await saveAIReport({
-        class_id: selectedStudent.class.id,
-        student_id: selectedStudent.student.id,
-        type: 'referral',
-        content: editableResult,
-        prompt_context: {
-          className: selectedStudent.class.name,
-          studentName: selectedStudent.student.full_name,
-          referralType: selectedType,
-        },
-      })
+      if (editingReportId) {
+        await updateAIReport(editingReportId, { content: editableResult, status: 'final' })
+        setEditingReportId(null)
+        setSavedReferrals(prev => prev.map(r => r.id === editingReportId ? { ...r, content: editableResult, status: 'final' as const } : r))
+      } else {
+        const saved = await saveAIReport({
+          class_id: selectedStudent.class.id,
+          student_id: selectedStudent.student.id,
+          type: 'referral',
+          content: editableResult,
+          prompt_context: {
+            className: selectedStudent.class.name,
+            studentName: selectedStudent.student.full_name,
+            referralType: selectedType,
+          },
+        })
+        setSavedReferrals(prev => [saved, ...prev])
+      }
       setResultProvider('saved')
-      setSavedReferrals(prev => [saved, ...prev])
       toast('Encaminhamento salvo!', 'success')
     } catch {
       toast('Erro ao salvar encaminhamento', 'error')
     } finally {
       setSalvandoFinal(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!editingReportId) return
+    if (!confirm('Tem certeza que deseja excluir este encaminhamento?')) return
+    try {
+      await deleteAIReport(editingReportId)
+      setSavedReferrals(prev => prev.filter(r => r.id !== editingReportId))
+      resetAll()
+      toast('Encaminhamento excluído!', 'success')
+    } catch {
+      toast('Erro ao excluir encaminhamento', 'error')
     }
   }
 
@@ -604,12 +626,17 @@ h1 { font-size: 16pt; color: #333; border-bottom: 1px solid #ccc; padding-bottom
           <textarea className="input" value={editableResult} onChange={e => setEditableResult(e.target.value)}
             style={{ minHeight: 300, fontSize: 14, lineHeight: 1.7, padding: 16, resize: 'vertical', fontFamily: 'inherit' }} />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+            {editingReportId && (
+              <button onClick={handleDelete} className="btn btn-danger" style={{ background: 'var(--danger)', color: '#fff', border: 'none' }}>
+                <Trash2 size={16} /> Excluir
+              </button>
+            )}
             <button onClick={resetAll} className="btn btn-secondary">Novo</button>
             <button onClick={handleCopy} className="btn btn-secondary">{copiado ? <Check size={16} /> : <Copy size={16} />} {copiado ? 'Copiado' : 'Copiar'}</button>
             <button onClick={handleExportTxt} className="btn btn-secondary"><FileDown size={16} /> TXT</button>
             <button onClick={handleExportDoc} className="btn btn-secondary"><FileDown size={16} /> DOC</button>
-            <button onClick={handleSaveFinal} className="btn btn-primary" disabled={salvandoFinal} style={{ marginLeft: 'auto' }}>
-              {salvandoFinal ? <><span className="spinner" /> Salvando...</> : <><Check size={16} /> Salvar como final</>}
+            <button onClick={handleSaveFinal} className="btn btn-primary" disabled={salvandoFinal} style={{ marginLeft: editingReportId ? 0 : 'auto' }}>
+              {salvandoFinal ? <><span className="spinner" /> Salvando...</> : <><Check size={16} /> {editingReportId ? 'Atualizar' : 'Salvar como final'}</>}
             </button>
           </div>
         </div>

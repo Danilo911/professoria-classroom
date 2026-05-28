@@ -647,6 +647,26 @@ export async function saveAIReport(input: {
   return data
 }
 
+export async function updateAIReport(id: string, input: {
+  content: string; status?: string
+}): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('ai_reports')
+    .update({ content: input.content, status: input.status || 'draft' })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteAIReport(id: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('ai_reports')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+}
+
 // ==================== GIER SUBMISSIONS ====================
 
 export async function getGierSubmissions(filters?: { class_id?: string }): Promise<GierSubmission[]> {
