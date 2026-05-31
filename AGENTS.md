@@ -64,3 +64,47 @@ As heurísticas de ano são aproximadas. Para dados exatos ano a ano, extrair do
 - **Frontend:** Layout em cartão com: header colorido, texto extraído, card com Componente/UTE/SABER/APR, descrição GIER editável
 - **Arquivos:** `src/app/dashboard/gier/page.tsx` (autenticado), `src/app/gier/page.tsx` (público)
 - **Database:** `ai_interpretation` armazena `{ component, ute, saber, apr, description, activity_type }`
+
+# Ferramentas do Professor
+
+A página `/dashboard/ferramentas` agrega utilitários para o dia a dia do professor. Cada ferramenta é uma sub-rota com seu próprio `page.tsx`.
+
+## Como adicionar uma nova ferramenta
+
+1. **Criar a página** em `src/app/dashboard/ferramentas/<slug>/page.tsx`
+2. **Registrar o card** — adicionar item ao array `tools` em `src/app/dashboard/ferramentas/page.tsx`:
+   ```ts
+   { id: '<slug>', title: 'Nome Visível', desc: 'Descrição curta', icon: NomeIcone, color: '#HEX' }
+   ```
+3. **Mapear a cor** — adicionar entrada no objeto `colorMap` no mesmo arquivo:
+   ```ts
+   '<slug>': '#HEX',
+   ```
+4. **Importar o ícone** de `lucide-react` no topo do arquivo.
+
+## Padrão da página de cada ferramenta
+
+```tsx
+'use client'
+
+import { ArrowLeft } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+
+export default function MinhaFerramentaPage() {
+  const router = useRouter()
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <button onClick={() => router.push('/dashboard/ferramentas')} className="btn btn-sm btn-ghost" style={{ padding: 8 }}>
+          <ArrowLeft size={18} />
+        </button>
+        <h1 style={{ fontSize: 20 }}>Nome da Ferramenta</h1>
+      </div>
+      {/* Conteúdo: iframe para apps externos, ou HTML/JS nativo */}
+    </div>
+  )
+}
+```
+
+Para ferramentas externas que rodam 100% no navegador, usar `<iframe>` com `height: 'calc(100vh - 120px)'` para ocupar toda a altura disponível.
