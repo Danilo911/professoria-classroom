@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, ClipboardCheck, BookOpen,
   Sparkles, FileText, Calendar, Settings, LogOut,
   Menu, X, ChevronLeft, MoreHorizontal, Stethoscope,
-  ClipboardList,
+  ClipboardList, Wrench,
 } from 'lucide-react'
 
 const navItems = [
@@ -21,6 +21,7 @@ const navItems = [
   { href: '/dashboard/avaliacao', label: 'Avaliação', icon: ClipboardList },
   { href: '/dashboard/gier', label: 'Gerador GIER', icon: FileText },
   { href: '/dashboard/planejamento', label: 'Planejamento', icon: Calendar },
+  { href: '/dashboard/ferramentas', label: 'Ferramentas', icon: Wrench },
 ]
 
 // Bottom nav shows first 4 + "More" on mobile
